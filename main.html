@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Skybox & Shader Showcase</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    .title {
+      text-align: center;
+      padding: 2rem;
+      font-size: 2rem;
+    }
+    .description {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    canvas {
+      display: block;
+      margin: 2rem auto;
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">Skybox & Shader Showcase</div>
+  <div class="description">
+    This interactive demo features a real-time WebGL skybox environment combined with custom shaders.<br><br>
+    Techniques include UV distortion, time-based animation, and GLSL effects. This project showcases the artistic and technical possibilities of fragment shaders in immersive 3D space.
+  </div>
+  <canvas id="glCanvas" width="1280" height="720">
+    Your browser does not support WebGL.
+  </canvas>
+  <!-- TODO: Add your WebGL skybox + shader script here -->
+</body>
+</html>

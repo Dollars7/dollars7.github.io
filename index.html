@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enter Portfolio</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer>
+    function openDoor() {
+      document.getElementById('left-door').classList.add('open-left');
+      document.getElementById('right-door').classList.add('open-right');
+      setTimeout(() => {
+        window.location.href = 'main.html';
+      }, 1300);
+    }
+  </script>
+</head>
+<body>
+  <div id="left-door" class="door"></div>
+  <div id="right-door" class="door"></div>
+  <div class="enter-button" onclick="openDoor()">ENTER</div>
+</body>
+</html>
