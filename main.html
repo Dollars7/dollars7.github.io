@@ -250,7 +250,7 @@
       ctx.fillStyle = '#151311';
       ctx.textAlign = 'center';
       ctx.font = 'bold 46px "Courier New", monospace';
-      ctx.fillText('ALLEN PEI', canvas.width / 2, 108);
+      ctx.fillText('ALLAN PEI', canvas.width / 2, 108);
       ctx.font = '28px "Courier New", monospace';
       ctx.fillText('HIRING RECEIPT', canvas.width / 2, 150);
       ctx.font = '18px "Courier New", monospace';
@@ -427,9 +427,9 @@
 
       // ---- Layout tuning values ----
       // Move these if you want the paper closer to / farther from the clips.
-      const receiptOffsetY = -0.02; // was -0.12
-      const rodOffsetY = receiptHeight / 2 + 0.08; // slightly lower than before
-      const clipOffsetY = receiptHeight / 2 - 0.01; // was +0.02
+      const receiptOffsetY = -0.06; // was -0.12
+      const rodOffsetY = receiptHeight / 2 + 0.08; //
+      const clipOffsetY = receiptHeight / 2 - 0.04; // was +0.02
 
       const geometry = new THREE.PlaneGeometry(receiptWidth, receiptHeight, segX, segY);
       const material = new THREE.MeshStandardMaterial({
@@ -441,7 +441,7 @@
 
       const receiptMesh = new THREE.Mesh(geometry, material);
       receiptMesh.position.y = receiptOffsetY;
-      receiptMesh.rotation.x = 0.06;
+      receiptMesh.rotation.x = 0.03;
       receiptMesh.castShadow = true;
       receiptMesh.receiveShadow = true;
       scene.add(receiptMesh);
@@ -722,13 +722,13 @@
       // =====================
 
       const projectLinks = [
-        "https://your-project-1-link.com",
-        "https://your-project-2-link.com",
-        "https://your-project-3-link.com",
-        "https://your-project-4-link.com",
-        "https://your-project-5-link.com",
-        "https://your-project-6-link.com",
-        "https://your-project-7-link.com"
+        // "https://your-project-1-link.com",
+        // "https://your-project-2-link.com",
+        // "https://your-project-3-link.com",
+        // "https://your-project-4-link.com",
+        // "https://your-project-5-link.com",
+        // "https://your-project-6-link.com",
+        // "https://your-project-7-link.com"
       ];
 
       renderer.domElement.addEventListener('click', (event) => {
