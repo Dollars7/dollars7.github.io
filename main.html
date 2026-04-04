@@ -449,14 +449,14 @@
       // Simple top rod and clips to frame the receipt visually.
       const rod = new THREE.Mesh(
         new THREE.CylinderGeometry(0.065, 0.065, receiptWidth + 0.34, 28),
-        new THREE.MeshStandardMaterial({ color: 0xd1cbc0, roughness: 0.62, metalness: 0.68 })
+        new THREE.MeshStandardMaterial({ color: 0xb0aca6, roughness:0.22,metalness:0.88 })
       );
       rod.rotation.z = Math.PI / 2;
       rod.position.set(0, rodOffsetY, 0.05);
       rod.castShadow = true;
       scene.add(rod);
 
-      const clipMaterial = new THREE.MeshStandardMaterial({ color: 0xb8b1a7, roughness: 0.55, metalness: 0.76 });
+      const clipMaterial = new THREE.MeshStandardMaterial({ color: 0x7a7672, metalness:0.70,roughness:0.35});
       for (const x of [-receiptWidth * 0.32, receiptWidth * 0.32]) {
         const clip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.1), clipMaterial);
         clip.position.set(x, clipOffsetY, 0.055);
