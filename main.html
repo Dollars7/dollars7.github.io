@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Allan Pei — 3D Hiring Receipt </title>
+  <title>Allen Pei — 3D Hiring Receipt V2.5</title>
   <style>
     html, body {
       margin: 0;
@@ -164,6 +164,51 @@
       }
     }
 
+    function createWallTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // Warm off-white wall base.
+      ctx.fillStyle = '#f3efe7';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Very subtle vertical plaster variation.
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+      grad.addColorStop(0, 'rgba(255,255,255,0.05)');
+      grad.addColorStop(0.5, 'rgba(0,0,0,0.015)');
+      grad.addColorStop(1, 'rgba(255,255,255,0.03)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Fine plaster / papered-wall grain so shadows feel less CG-flat.
+      for (let i = 0; i < 42000; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const alpha = Math.random() * 0.028;
+        const shade = 210 + Math.floor(Math.random() * 20);
+        ctx.fillStyle = `rgba(${shade}, ${shade - 4}, ${shade - 10}, ${alpha})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+
+      // Extremely soft horizontal lines to mimic painted wall / paper fiber.
+      ctx.strokeStyle = 'rgba(90,80,65,0.022)';
+      for (let y = 0; y < canvas.height; y += 8) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(canvas.width, y + 0.5);
+        ctx.stroke();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2.2, 1.8);
+      return texture;
+    }
+
     function createReceiptTexture(renderer) {
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
@@ -205,7 +250,7 @@
       ctx.fillStyle = '#151311';
       ctx.textAlign = 'center';
       ctx.font = 'bold 46px "Courier New", monospace';
-      ctx.fillText('ALLAN PEI', canvas.width / 2, 108);
+      ctx.fillText('ALLEN PEI', canvas.width / 2, 108);
       ctx.font = '28px "Courier New", monospace';
       ctx.fillText('HIRING RECEIPT', canvas.width / 2, 150);
       ctx.font = '18px "Courier New", monospace';
@@ -330,6 +375,8 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       app.appendChild(renderer.domElement);
 
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -344,11 +391,32 @@
 
       const key = new THREE.DirectionalLight(0xffffff, 1.7);
       key.position.set(2.5, 3.2, 4.5);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.near = 0.5;
+      key.shadow.camera.far = 16;
+      key.shadow.bias = -0.00015;
+      key.shadow.normalBias = 0.02;
       scene.add(key);
 
       const fill = new THREE.DirectionalLight(0xfff7ea, 0.55);
       fill.position.set(-2.2, 1.0, 2.6);
       scene.add(fill);
+
+      // Background wall with a little texture so the cast shadow feels more natural.
+      const wallTexture = createWallTexture();
+      const wall = new THREE.Mesh(
+        new THREE.PlaneGeometry(12, 9),
+        new THREE.MeshStandardMaterial({
+          map: wallTexture,
+          color: 0xf5f1e8,
+          roughness: 0.98,
+          metalness: 0.0
+        })
+      );
+      wall.position.set(0, 0.1, -1.05);
+      wall.receiveShadow = true;
+      scene.add(wall);
 
       // Build receipt texture and mesh.
       const receiptTexture = createReceiptTexture(renderer);
@@ -356,6 +424,12 @@
       const receiptHeight = 3.08;
       const segX = 24;
       const segY = 56;
+
+      // ---- Layout tuning values ----
+      // Move these if you want the paper closer to / farther from the clips.
+      const receiptOffsetY = -0.02; // was -0.12
+      const rodOffsetY = receiptHeight / 2 + 0.08; // slightly lower than before
+      const clipOffsetY = receiptHeight / 2 - 0.01; // was +0.02
 
       const geometry = new THREE.PlaneGeometry(receiptWidth, receiptHeight, segX, segY);
       const material = new THREE.MeshStandardMaterial({
@@ -366,8 +440,10 @@
       });
 
       const receiptMesh = new THREE.Mesh(geometry, material);
-      receiptMesh.position.y = -0.12;
+      receiptMesh.position.y = receiptOffsetY;
       receiptMesh.rotation.x = 0.06;
+      receiptMesh.castShadow = true;
+      receiptMesh.receiveShadow = true;
       scene.add(receiptMesh);
 
       // Simple top rod and clips to frame the receipt visually.
@@ -376,13 +452,15 @@
         new THREE.MeshStandardMaterial({ color: 0xd1cbc0, roughness: 0.62, metalness: 0.68 })
       );
       rod.rotation.z = Math.PI / 2;
-      rod.position.set(0, receiptHeight / 2 + 0.1, 0.05);
+      rod.position.set(0, rodOffsetY, 0.05);
+      rod.castShadow = true;
       scene.add(rod);
 
       const clipMaterial = new THREE.MeshStandardMaterial({ color: 0xb8b1a7, roughness: 0.55, metalness: 0.76 });
       for (const x of [-receiptWidth * 0.32, receiptWidth * 0.32]) {
         const clip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.1), clipMaterial);
-        clip.position.set(x, receiptHeight / 2 + 0.02, 0.04);
+        clip.position.set(x, clipOffsetY, 0.055);
+        clip.castShadow = true;
         scene.add(clip);
       }
 
@@ -638,6 +716,36 @@
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       }
+
+      // =====================
+      // CLICK → PROJECT LINK (NEW FEATURE)
+      // =====================
+
+      const projectLinks = [
+        "https://your-project-1-link.com",
+        "https://your-project-2-link.com",
+        "https://your-project-3-link.com",
+        "https://your-project-4-link.com",
+        "https://your-project-5-link.com",
+        "https://your-project-6-link.com",
+        "https://your-project-7-link.com"
+      ];
+
+      renderer.domElement.addEventListener('click', (event) => {
+        updatePointer(event);
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(receiptMesh, false);
+        if (!hits.length) return;
+
+        const uv = hits[0].uv;
+
+        // Map UV.y → which item row
+        const itemIndex = Math.floor((1 - uv.y) * projectLinks.length);
+
+        if (projectLinks[itemIndex]) {
+          window.open(projectLinks[itemIndex], '_blank');
+        }
+      });
 
       animate();
     }
