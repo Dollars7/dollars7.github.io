@@ -1,44 +1,652 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Skybox & Shader Showcase</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ailun Pei — 3D Hiring Resume Receipt </title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: black;
-      color: white;
-      font-family: sans-serif;
+      height: 100%;
       overflow: hidden;
+      background: radial-gradient(circle at 50% 18%, #faf8f2 0%, #f0ede3 42%, #ddd8cb 100%);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    .title {
-      text-align: center;
-      padding: 2rem;
-      font-size: 2rem;
+
+    #app {
+      width: 100%;
+      height: 100%;
+      position: relative;
     }
-    .description {
-      padding: 1rem 2rem;
-      font-size: 1rem;
-      max-width: 800px;
-      margin: 0 auto;
+
+    .hud {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      z-index: 20;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.74);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      color: #222;
+      max-width: 360px;
+      line-height: 1.35;
     }
-    canvas {
-      display: block;
-      margin: 2rem auto;
-      max-width: 100%;
-      height: auto;
+
+    .hud h1 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
+
+    .hud p {
+      margin: 0;
+      font-size: 12px;
+      color: #555;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #111;
+      background: rgba(0,0,0,0.06);
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+
+    .hint {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      color: rgba(0,0,0,0.58);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.62);
+      backdrop-filter: blur(8px);
+      padding: 10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    .error-box {
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
+      z-index: 30;
+      max-width: min(680px, calc(100vw - 36px));
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(80, 0, 0, 0.9);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      box-shadow: 0 12px 34px rgba(0,0,0,0.24);
+      display: none;
+    }
+
+    canvas { display: block; }
   </style>
 </head>
 <body>
-  <div class="title">Skybox & Shader Showcase</div>
-  <div class="description">
-    This interactive demo features a real-time WebGL skybox environment combined with custom shaders.<br><br>
-    Techniques include UV distortion, time-based animation, and GLSL effects. This project showcases the artistic and technical possibilities of fragment shaders in immersive 3D space.
+  <div id="app">
+    <div class="hud">
+      <h1>Hire Ailun Pei you will get</h1>
+      <p>
+        Engineering-stable version. Uses import maps, guarded boot logic, visible runtime errors,
+        and a simpler paper simulation that is easier to debug and extend.
+      </p>
+      <div class="badge">Stable Boot · Clear Structure · Easy to Extend</div>
+    </div>
+    <div class="hint">Drag the lower half · Scroll to zoom · Right-drag to orbit</div>
+    <div class="error-box" id="errorBox"></div>
   </div>
-  <canvas id="glCanvas" width="1280" height="720">
-    Your browser does not support WebGL.
-  </canvas>
-  <!-- TODO: Add your WebGL skybox + shader script here -->
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const app = document.getElementById('app');
+    const errorBox = document.getElementById('errorBox');
+
+    function showError(message) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = message;
+    }
+
+    // Global error hooks so blank screens become visible errors.
+    window.addEventListener('error', (event) => {
+      showError(`Runtime Error\n\n${event.message}`);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason?.message || String(event.reason);
+      showError(`Unhandled Promise Rejection\n\n${reason}`);
+    });
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = text.split(' ');
+      let line = '';
+      for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+          ctx.fillText(line, x, y);
+          line = words[i] + ' ';
+          y += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, x, y);
+    }
+
+    function drawBarcode(ctx, x, y, width, height) {
+      let cursor = x;
+      const pattern = '101011110100101110101001011101001010111010010111';
+      while (cursor < x + width) {
+        for (const bit of pattern) {
+          const barWidth = bit === '1' ? 3 : 1;
+          if (bit === '1') ctx.fillRect(cursor, y, barWidth, height);
+          cursor += barWidth + 1;
+          if (cursor >= x + width) break;
+        }
+      }
+    }
+
+    function createReceiptTexture(renderer) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 2048;
+      const ctx = canvas.getContext('2d');
+
+      // Paper base
+      ctx.fillStyle = '#f5f0e6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Fine thermal paper speckle
+      for (let i = 0; i < 35000; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const alpha = Math.random() * 0.035;
+        ctx.fillStyle = `rgba(80, 65, 40, ${alpha})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+
+      // Horizontal paper lines
+      ctx.strokeStyle = 'rgba(60,50,40,0.06)';
+      for (let y = 0; y < canvas.height; y += 6) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(canvas.width, y + 0.5);
+        ctx.stroke();
+      }
+
+      // Subtle side shading so the sheet feels less flat.
+      const sideShade = ctx.createLinearGradient(0, 0, canvas.width, 0);
+      sideShade.addColorStop(0, 'rgba(255,255,255,0.14)');
+      sideShade.addColorStop(0.1, 'rgba(255,255,255,0)');
+      sideShade.addColorStop(0.9, 'rgba(255,255,255,0)');
+      sideShade.addColorStop(1, 'rgba(0,0,0,0.03)');
+      ctx.fillStyle = sideShade;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Header
+      ctx.fillStyle = '#151311';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 46px "Courier New", monospace';
+      ctx.fillText('ALLEN PEI', canvas.width / 2, 108);
+      ctx.font = '28px "Courier New", monospace';
+      ctx.fillText('HIRING RECEIPT', canvas.width / 2, 150);
+      ctx.font = '18px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(20,20,20,0.55)';
+      ctx.fillText('CREATIVE SOFTWARE ENGINEER · GRAPHICS · AI BUILDER', canvas.width / 2, 184);
+
+      // Meta row
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(20,20,20,0.9)';
+      ctx.font = '22px "Courier New", monospace';
+      ctx.fillText('REC #00025', 86, 248);
+      ctx.fillText('APR 2026', 410, 248);
+      ctx.fillText('READY TO SHIP', 710, 248);
+
+      const dashedRule = (y) => {
+        ctx.strokeStyle = 'rgba(30,30,30,0.22)';
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(78, y);
+        ctx.lineTo(canvas.width - 78, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      };
+
+      dashedRule(284);
+      ctx.font = 'bold 23px "Courier New", monospace';
+      ctx.fillText('WHAT YOU ARE BUYING', 86, 332);
+
+      const items = [
+        ['1x Interactive Product Builder', 'Responsive frontends, demos, and product surfaces that feel finished.'],
+        ['1x Shader Foundry', 'WebGL / GLSL / Three.js systems with visual impact and technical depth.'],
+        ['1x AI-Augmented Dev Loop', 'Ships faster with GPT/Cursor while keeping engineering judgment in the loop.'],
+        ['1x Rapid Prototype Engine', 'Turns vague concepts into MVPs in days, not weeks.'],
+        ['1x Cross-Disciplinary Thinking', 'Art + CS = stronger visual taste, better constraints, clearer ideas.'],
+        ['1x Data-to-Visual Translator', 'Turns abstract behavior, systems, or emotion into interactive form.'],
+        ['1x Bilingual Collaboration Codec', 'EN / 中文 communication across engineering and product contexts.']
+      ];
+
+      let y = 404;
+      for (const [title, desc] of items) {
+        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.fillStyle = '#111';
+        ctx.fillText(title, 96, y);
+        ctx.fillStyle = '#111';
+        ctx.fillText('$∞', 884, y);
+
+        ctx.font = '22px "Courier New", monospace';
+        ctx.fillStyle = 'rgba(20,20,20,0.75)';
+        wrapText(ctx, desc, 108, y + 42, 820, 30);
+        y += 168;
+      }
+
+      dashedRule(1628);
+      ctx.font = '24px "Courier New", monospace';
+      ctx.fillStyle = '#111';
+      ctx.fillText('SUBTOTAL', 96, 1696);
+      ctx.fillText('PRICELESS', 786, 1696);
+      ctx.fillText('LOCATION', 96, 1740);
+      ctx.fillText('TEMPE / US', 786, 1740);
+      ctx.fillText('STATUS', 96, 1784);
+      ctx.fillText('AVAILABLE', 786, 1784);
+
+      ctx.font = 'bold 32px "Courier New", monospace';
+      ctx.fillText('TOTAL VALUE DELIVERED', 96, 1850);
+      ctx.fillText('FAST + CREATIVE + VISUAL', 526, 1902);
+
+      ctx.fillStyle = '#111';
+      drawBarcode(ctx, 130, 1932, 760, 92);
+      ctx.textAlign = 'center';
+      ctx.font = '18px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(20,20,20,0.65)';
+      ctx.fillText('SCAN TO HIRE', canvas.width / 2, 2034);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    // Particle used by the semi-rigid paper solver.
+    class Particle {
+      constructor(position, pinned = false, springBack = 0) {
+        this.position = position.clone();
+        this.previous = position.clone();
+        this.original = position.clone();
+        this.acceleration = new THREE.Vector3();
+        this.pinned = pinned;
+        this.springBack = springBack;
+      }
+
+      addForce(force) {
+        if (this.pinned) return;
+        this.acceleration.add(force);
+      }
+
+      integrate(dtSq, damping) {
+        if (this.pinned) {
+          this.position.copy(this.original);
+          this.previous.copy(this.original);
+          this.acceleration.set(0, 0, 0);
+          return;
+        }
+
+        const velocity = this.position.clone().sub(this.previous).multiplyScalar(damping);
+        const next = this.position.clone().add(velocity).add(this.acceleration.clone().multiplyScalar(dtSq));
+        this.previous.copy(this.position);
+        this.position.copy(next);
+        this.acceleration.set(0, 0, 0);
+      }
+    }
+
+    // Main boot function so failures can be caught clearly.
+    async function main() {
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf2efe7);
+
+      const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 0.08, 6.0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      app.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.enablePan = false;
+      controls.minDistance = 3.2;
+      controls.maxDistance = 7.5;
+      controls.target.set(0, -0.22, 0);
+
+      // Lighting kept intentionally simple and stable.
+      scene.add(new THREE.AmbientLight(0xffffff, 1.45));
+
+      const key = new THREE.DirectionalLight(0xffffff, 1.7);
+      key.position.set(2.5, 3.2, 4.5);
+      scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xfff7ea, 0.55);
+      fill.position.set(-2.2, 1.0, 2.6);
+      scene.add(fill);
+
+      // Build receipt texture and mesh.
+      const receiptTexture = createReceiptTexture(renderer);
+      const receiptWidth = 1.56;
+      const receiptHeight = 3.08;
+      const segX = 24;
+      const segY = 56;
+
+      const geometry = new THREE.PlaneGeometry(receiptWidth, receiptHeight, segX, segY);
+      const material = new THREE.MeshStandardMaterial({
+        map: receiptTexture,
+        side: THREE.DoubleSide,
+        roughness: 0.95,
+        metalness: 0.01
+      });
+
+      const receiptMesh = new THREE.Mesh(geometry, material);
+      receiptMesh.position.y = -0.12;
+      receiptMesh.rotation.x = 0.06;
+      scene.add(receiptMesh);
+
+      // Simple top rod and clips to frame the receipt visually.
+      const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.065, 0.065, receiptWidth + 0.34, 28),
+        new THREE.MeshStandardMaterial({ color: 0xd1cbc0, roughness: 0.62, metalness: 0.68 })
+      );
+      rod.rotation.z = Math.PI / 2;
+      rod.position.set(0, receiptHeight / 2 + 0.1, 0.05);
+      scene.add(rod);
+
+      const clipMaterial = new THREE.MeshStandardMaterial({ color: 0xb8b1a7, roughness: 0.55, metalness: 0.76 });
+      for (const x of [-receiptWidth * 0.32, receiptWidth * 0.32]) {
+        const clip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.1), clipMaterial);
+        clip.position.set(x, receiptHeight / 2 + 0.02, 0.04);
+        scene.add(clip);
+      }
+
+      // Geometry data references.
+      const cols = segX + 1;
+      const rows = segY + 1;
+      const posAttr = geometry.attributes.position;
+      const basePositions = new Float32Array(posAttr.array);
+      const particles = [];
+      const constraints = [];
+
+      const idx = (x, y) => y * cols + x;
+
+      // Create one particle per vertex.
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = idx(x, y);
+          const v = new THREE.Vector3(
+            basePositions[i * 3 + 0],
+            basePositions[i * 3 + 1],
+            basePositions[i * 3 + 2]
+          );
+
+          const topRow = y === 0;
+          const secondRow = y === 1;
+          particles.push(new Particle(v, topRow, secondRow ? 0.18 : 0));
+        }
+      }
+
+      const addConstraint = (a, b, stiffness = 1) => {
+        const restLength = particles[a].position.distanceTo(particles[b].position);
+        constraints.push({ a, b, restLength, stiffness });
+      };
+
+      // Structural + shear + bend constraints.
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (x < cols - 1) addConstraint(idx(x, y), idx(x + 1, y), 1.06);
+          if (y < rows - 1) addConstraint(idx(x, y), idx(x, y + 1), 1.03);
+          if (x < cols - 1 && y < rows - 1) addConstraint(idx(x, y), idx(x + 1, y + 1), 0.68);
+          if (x > 0 && y < rows - 1) addConstraint(idx(x, y), idx(x - 1, y + 1), 0.68);
+          if (x < cols - 2) addConstraint(idx(x, y), idx(x + 2, y), 0.62);
+          if (y < rows - 2) addConstraint(idx(x, y), idx(x, y + 2), 0.58);
+        }
+      }
+
+      // Input helpers.
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const dragPoint = new THREE.Vector3();
+      const dragOffset = new THREE.Vector3();
+      const tempWorld = new THREE.Vector3();
+
+      let draggedIndex = -1;
+      let isDragging = false;
+      let creasePhase = 0;
+
+      const gravity = new THREE.Vector3(0, -8.0, 0);
+      const wind = new THREE.Vector3();
+      const clock = new THREE.Clock();
+
+      function satisfyConstraint(constraint) {
+        const p1 = particles[constraint.a];
+        const p2 = particles[constraint.b];
+        const delta = p2.position.clone().sub(p1.position);
+        const dist = delta.length();
+        if (dist === 0) return;
+
+        const diff = (dist - constraint.restLength) / dist;
+        const correction = delta.multiplyScalar(0.5 * constraint.stiffness * diff);
+
+        if (!p1.pinned) p1.position.add(correction);
+        if (!p2.pinned) p2.position.sub(correction);
+      }
+
+      function updatePointer(event) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      }
+
+      function nearestParticleFromUV(uv) {
+        const x = Math.round(uv.x * segX);
+        const y = Math.round((1 - uv.y) * segY);
+        return idx(
+          THREE.MathUtils.clamp(x, 0, segX),
+          THREE.MathUtils.clamp(y, 0, segY)
+        );
+      }
+
+      // Drag influences a local patch instead of one point only.
+      function dragInfluence(centerIndex, targetLocal) {
+        const center = particles[centerIndex].position.clone();
+        const radius = 0.26;
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          if (p.pinned) continue;
+          const dist = p.position.distanceTo(center);
+          if (dist > radius) continue;
+
+          const falloff = Math.pow(1 - dist / radius, 1.85);
+          p.position.lerp(targetLocal, 0.48 * falloff);
+          p.previous.lerp(targetLocal, 0.2 * falloff);
+        }
+      }
+
+      renderer.domElement.addEventListener('pointerdown', (event) => {
+        updatePointer(event);
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(receiptMesh, false);
+        if (!hits.length) return;
+
+        const hit = hits[0];
+        const particleIndex = nearestParticleFromUV(hit.uv);
+        const particle = particles[particleIndex];
+
+        // Only allow dragging the lower portion so the top stays convincingly clipped.
+        if (particle.pinned || particle.original.y > receiptHeight * 0.18) return;
+
+        draggedIndex = particleIndex;
+        isDragging = true;
+        controls.enabled = false;
+
+        tempWorld.copy(particle.position).add(receiptMesh.position);
+        dragPlane.setFromNormalAndCoplanarPoint(
+          camera.getWorldDirection(new THREE.Vector3()).clone().negate(),
+          tempWorld
+        );
+
+        raycaster.ray.intersectPlane(dragPlane, dragPoint);
+        dragOffset.copy(tempWorld.sub(dragPoint));
+      });
+
+      window.addEventListener('pointermove', (event) => {
+        if (!isDragging || draggedIndex < 0) return;
+        updatePointer(event);
+        raycaster.setFromCamera(pointer, camera);
+
+        if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+          const target = dragPoint.clone().add(dragOffset).sub(receiptMesh.position);
+          dragInfluence(draggedIndex, target);
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        isDragging = false;
+        draggedIndex = -1;
+        controls.enabled = true;
+      });
+
+      // Paper memory: keeps it feeling like semi-rigid receipt paper, not loose fabric.
+      function applyPaperMemory(t) {
+        const frontCurl = 0.055;
+        const sideCurl = 0.015;
+
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const i = idx(x, y);
+            const p = particles[i];
+            if (p.pinned) continue;
+
+            const nx = x / segX;
+            const ny = y / segY;
+            const bottomFactor = Math.pow(ny, 1.6);
+            const centerOffset = nx - 0.5;
+
+            // Bottom/front curl.
+            const targetZ = bottomFactor * frontCurl + Math.abs(centerOffset) * sideCurl * bottomFactor;
+            p.position.z += (targetZ - p.position.z) * 0.038;
+
+            // Subtle lateral paper life.
+            const subtleWave = Math.sin(t * 0.52 + ny * 4.8 + centerOffset * 3.2) * 0.0022 * bottomFactor;
+            p.position.x += subtleWave;
+
+            // Mid crease hint.
+            if (y > rows * 0.56 && y < rows * 0.72) {
+              const crease = Math.sin((nx - 0.5) * Math.PI) * 0.0075;
+              p.position.z += crease * (0.7 + 0.3 * Math.sin(creasePhase));
+            }
+
+            // Second row gets a mild return-to-original pull for a stronger clipped feeling.
+            if (p.springBack > 0) {
+              p.position.lerp(p.original, p.springBack);
+            }
+          }
+        }
+      }
+
+      function updateGeometry() {
+        for (let i = 0; i < particles.length; i++) {
+          posAttr.setXYZ(i, particles[i].position.x, particles[i].position.y, particles[i].position.z);
+        }
+        posAttr.needsUpdate = true;
+        geometry.computeVertexNormals();
+      }
+
+      function simulate(dt) {
+        const dtSq = dt * dt;
+        const damping = 0.968;
+        const t = performance.now() * 0.001;
+        creasePhase += dt * 1.4;
+
+        // Wind is intentionally weak in the stable version.
+        wind.set(Math.sin(t * 0.42) * 0.08, Math.cos(t * 0.3) * 0.02, Math.sin(t * 0.68) * 0.07);
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.addForce(gravity);
+          if (!p.pinned) {
+            const verticalFactor = 1 - (p.original.y + receiptHeight / 2) / receiptHeight;
+            p.addForce(wind.clone().multiplyScalar(0.015 + verticalFactor * 0.04));
+          }
+          p.integrate(dtSq, damping);
+        }
+
+        // More iterations = stiffer/more stable result.
+        for (let iter = 0; iter < 10; iter++) {
+          for (let i = 0; i < constraints.length; i++) {
+            satisfyConstraint(constraints[i]);
+          }
+        }
+
+        applyPaperMemory(t);
+
+        // Gentle floor clamp so the paper never disappears downward.
+        const bottomLimit = -2.56;
+        for (const p of particles) {
+          if (!p.pinned && p.position.y < bottomLimit) p.position.y = bottomLimit;
+        }
+
+        updateGeometry();
+      }
+
+      function resize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      }
+
+      window.addEventListener('resize', resize);
+
+      // First frame render so users do not briefly see a blank screen.
+      controls.update();
+      renderer.render(scene, camera);
+
+      function animate() {
+        const dt = Math.min(clock.getDelta(), 1 / 30);
+        simulate(dt);
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    }
+
+    main().catch((error) => {
+      console.error(error);
+      showError(`Boot Failure\n\n${error?.message || error}`);
+    });
+  </script>
 </body>
 </html>

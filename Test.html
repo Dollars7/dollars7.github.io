@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allan Pei — Receipt</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%;height:100%;overflow:hidden;background:#fff; }
+#hint {
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+  font:11px 'Courier New',monospace; color:rgba(0,0,0,0.28);
+  letter-spacing:0.14em; text-transform:uppercase; pointer-events:none;
+  white-space:nowrap;
+}
+</style>
+</head>
+<body>
+<div id="hint">DRAG TO INTERACT · CLICK GREEN LINE TO HIRE</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════
+const COLS  = 12;
+const ROWS  = 28;
+const N     = COLS * ROWS;
+const RW    = 1.15;    // receipt width  (world units)
+const RH    = 2.50;    // receipt height
+const GRAV  = 0.00020; // gravity per frame²
+const DAMP  = 0.984;   // velocity damping (1 = no damping)
+const ITERS = 14;      // constraint solver passes per frame
+const WIND  = 0.000028; // subtle alive-wind amplitude
+
+// ════════════════════════════════════════════════
+// PARTICLE ARRAYS  (typed = zero GC pressure)
+// ════════════════════════════════════════════════
+const posX = new Float32Array(N);
+const posY = new Float32Array(N);
+const posZ = new Float32Array(N);
+const prvX = new Float32Array(N);
+const prvY = new Float32Array(N);
+const prvZ = new Float32Array(N);
+const pin  = new Uint8Array(N);    // 1 = fixed (entire row-0)
+
+// Flat initial layout, Z = 0
+for (let r = 0; r < ROWS; r++) {
+  for (let c = 0; c < COLS; c++) {
+    const i = r*COLS + c;
+    posX[i] = (c/(COLS-1) - 0.5) * RW;
+    posY[i] = (1 - r/(ROWS-1)) * RH - RH*0.5;
+    prvX[i] = posX[i];
+    prvY[i] = posY[i];
+    pin[i]  = (r === 0) ? 1 : 0;   // ALL 12 top-row particles pinned
+  }
+}
+
+// ════════════════════════════════════════════════
+// CONSTRAINTS  (built while grid is perfectly flat)
+// ════════════════════════════════════════════════
+const MAX_C = COLS * ROWS * 9;
+const cA    = new Int32Array(MAX_C);
+const cB    = new Int32Array(MAX_C);
+const cRest = new Float32Array(MAX_C);
+const cStif = new Float32Array(MAX_C);
+let   NC    = 0;
+
+function addC(a, b, stiff) {
+  if (pin[a] && pin[b]) return;          // both pinned → meaningless
+  const dx = posX[b]-posX[a], dy = posY[b]-posY[a]; // Z=0 at build time
+  cA[NC]=a; cB[NC]=b;
+  cRest[NC] = Math.sqrt(dx*dx + dy*dy);  // rest length from flat XY
+  cStif[NC] = stiff;
+  NC++;
+}
+
+for (let r = 0; r < ROWS; r++) {
+  for (let c = 0; c < COLS; c++) {
+    const i = r*COLS + c;
+    // — structural —
+    if (c < COLS-1) addC(i, i+1,          1.00); // horizontal
+    if (r < ROWS-1) addC(i, i+COLS,       1.00); // vertical
+    // — shear —
+    if (c < COLS-1 && r < ROWS-1) {
+      addC(i,   i+COLS+1, 0.88);
+      addC(i+1, i+COLS,   0.88);
+    }
+    // — bending (paper stiffness, 2-hop) —
+    if (c < COLS-2) addC(i, i+2,        0.22); // horiz bend
+    if (r < ROWS-2) addC(i, i+COLS*2,   0.22); // vert  bend
+  }
+}
+
+// ════════════════════════════════════════════════
+// INITIAL PERTURBATION  (entry swing animation)
+// — set prevPos behind current so Verlet sees
+//   an initial forward velocity; constraints
+//   then fight it → natural oscillation & settle —
+// ════════════════════════════════════════════════
+for (let r = 1; r < ROWS; r++) {
+  for (let c = 0; c < COLS; c++) {
+    const i = r*COLS + c;
+    const t  = r/(ROWS-1);
+    const v0 = Math.sin(t * Math.PI) * 0.014 * (0.6 + Math.random()*0.8);
+    posZ[i] = v0;   // current = one step forward
+    prvZ[i] = 0;    // previous = flat  →  velocity = +v0
+  }
+}
+
+// ════════════════════════════════════════════════
+// VERLET + CONSTRAINT SOLVER
+// ════════════════════════════════════════════════
+function physicsStep() {
+  // ── Verlet integrate ──
+  for (let i = 0; i < N; i++) {
+    if (pin[i]) continue;
+    const vx = (posX[i]-prvX[i]) * DAMP;
+    const vy = (posY[i]-prvY[i]) * DAMP;
+    const vz = (posZ[i]-prvZ[i]) * DAMP;
+    prvX[i]=posX[i]; prvY[i]=posY[i]; prvZ[i]=posZ[i];
+    posX[i] += vx;
+    posY[i] += vy - GRAV;
+    posZ[i] += vz;
+  }
+  // ── Project constraints ──
+  for (let it = 0; it < ITERS; it++) {
+    for (let k = 0; k < NC; k++) {
+      const a=cA[k], b=cB[k];
+      const dx=posX[b]-posX[a], dy=posY[b]-posY[a], dz=posZ[b]-posZ[a];
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (d < 1e-7) continue;
+      const diff = (d - cRest[k]) / d * cStif[k];
+      const pa=pin[a], pb=pin[b];
+      if (!pa && !pb) {
+        const s = diff * 0.5;
+        posX[a]+=dx*s; posY[a]+=dy*s; posZ[a]+=dz*s;
+        posX[b]-=dx*s; posY[b]-=dy*s; posZ[b]-=dz*s;
+      } else if (!pa) {
+        posX[a]+=dx*diff; posY[a]+=dy*diff; posZ[a]+=dz*diff;
+      } else if (!pb) {
+        posX[b]-=dx*diff; posY[b]-=dy*diff; posZ[b]-=dz*diff;
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+// RECEIPT TEXTURE  (canvas-drawn thermal receipt)
+// ════════════════════════════════════════════════
+function buildTexture() {
+  const TW=512, TH=1024;
+  const cv=document.createElement('canvas');
+  cv.width=TW; cv.height=TH;
+  const g=cv.getContext('2d');
+
+  // Warm base gradient (thermal paper yellowing slightly at bottom)
+  const bg=g.createLinearGradient(0,0,0,TH);
+  bg.addColorStop(0,'#faf7f0');
+  bg.addColorStop(0.6,'#f8f4ea');
+  bg.addColorStop(1,'#f4efdf');
+  g.fillStyle=bg; g.fillRect(0,0,TW,TH);
+
+  // Thermal print line artifact (very subtle horizontal banding)
+  for (let y=0;y<TH;y+=3) {
+    g.fillStyle=`rgba(0,0,0,${0.005+Math.random()*0.007})`;
+    g.fillRect(0,y,TW,1);
+  }
+  // Paper grain
+  for (let i=0;i<3500;i++) {
+    const gv=100+Math.random()*90|0;
+    g.fillStyle=`rgba(${gv},${(gv*0.85)|0},${(gv*0.65)|0},${0.03+Math.random()*0.05})`;
+    g.fillRect(Math.random()*TW, Math.random()*TH, 1, 1);
+  }
+
+  const CX=TW/2, LP=30, RP=TW-30;
+  let cy=0;
+  const COL_QTY=322, COL_PRICE=RP;
+
+  const txt=(s,x,align,sz,bold,col='#1a1916')=>{
+    g.font=`${bold?'bold ':''} ${sz}px "Courier New"`;
+    g.fillStyle=col; g.textAlign=align; g.fillText(s,x,cy);
+  };
+  const hr=(dash=false,w=1)=>{
+    g.strokeStyle=`rgba(0,0,0,0.28)`; g.lineWidth=w;
+    g.setLineDash(dash?[4,4]:[]);
+    g.beginPath(); g.moveTo(LP,cy); g.lineTo(RP,cy); g.stroke();
+    g.setLineDash([]); cy+=13;
+  };
+  const row=(name,qty,price,faded=false)=>{
+    const col=faded?'#999':'#1a1916';
+    g.font=`11px "Courier New"`; g.fillStyle=col;
+    g.textAlign='left';   g.fillText(name,LP,cy);
+    g.textAlign='center'; g.fillText(qty,COL_QTY,cy);
+    g.textAlign='right';  g.fillText(price,COL_PRICE,cy);
+    cy+=19;
+  };
+
+  // ── HEADER ──
+  cy=42;
+  txt('GRAPHICS STORE™', CX,'center',20,true);
+  cy+=5; txt('"Undefined Behavior Since 1997"',CX,'center',10,false,'#999');
+  cy+=18; hr(false,1.5);
+  txt('REC #404-NOT-FOUND',LP,'left',10,false,'#777');
+  txt('2026-04-03  03:14:15',RP,'right',10,false,'#777');
+  cy+=17; hr();
+  // Column headers
+  g.font='10px "Courier New"'; g.fillStyle='#aaa';
+  g.textAlign='left';   g.fillText('ITEM',LP,cy);
+  g.textAlign='center'; g.fillText('QTY',COL_QTY,cy);
+  g.textAlign='right';  g.fillText('PRICE',COL_PRICE,cy);
+  cy+=5; hr(true);
+
+  // ── ITEMS (funny 3D graphics shopping list) ──
+  row('VERTEX BUFFER OVERFLOW',    '×1',    '$NaN');
+  row('NULL TEXTURE HANDLE',       '×∞',    'FREE');
+  row('SHADOW ACNE (CTRL+Z)',       '×2',    '$12.99');
+  row('Z-FIGHTING BAND-AID',       '×5',    '$0.01');
+  row('UNDEFINED NORMAL MAP',      '×3',    '$ERR');
+  row('MAGIC_NUMBER ASSORTMENT',   '×42',   '$6.66');
+  row('1×1 WHITE PLACEHOLDER',     '×99',   'FREE');
+  row('SCREEN SPACE AMBOCC',       '×1',    '$0.00');
+  row('DEPTH BUFFER MAXED OUT',    '×1',    '$NaN');
+  row('OVERDRAW VIP MEMBERSHIP',   '×∞',    'PRICELESS');
+  row('MIPMAP CHAIN (ALL BLANK)',  '×7',    '$NaN');
+  row('PREMULT ALPHA (WRONG)',      '×4',    '-$99');
+  row('glClear ADDICTION',         '×1000', 'FREE');
+  row('TRIANGLE STRIP ANXIETY',    '×1',    '$0.00');
+
+  cy+=5; hr(false,1.5);
+
+  // ── TOTALS ──
+  row('SUBTOTAL:','','∞ triangles');
+  row('TAX (GPU LEVY 0%):','','$0.00');
+  row('SHADER COMPILE FEE:','','$ERROR');
+  cy+=3; hr(false,2);
+  cy+=2;
+  g.font='bold 14px "Courier New"'; g.fillStyle='#1a1916';
+  g.textAlign='left';  g.fillText('TOTAL OVERDRAW:',LP,cy);
+  g.textAlign='right'; g.fillText('ERROR',RP,cy);
+  cy+=22; hr(false,1.5);
+
+  // ── FINE PRINT ──
+  cy+=4;
+  const notes=[
+    '* VERTICES NOT INCLUDED IN PRICE',
+    '* NO RETURNS ON COMPILED SHADERS',
+    '* NaN IS A VALID AND CORRECT PRICE',
+    '* NOT RESPONSIBLE FOR FRAME DROPS',
+    '* glEnable(DISCLAIMER) IS ASSUMED',
+  ];
+  g.font='9px "Courier New"'; g.fillStyle='#bbb'; g.textAlign='center';
+  notes.forEach(n=>{ g.fillText(n,CX,cy); cy+=12; });
+  cy+=10; hr(true);
+
+  // ── HIRE SECTION ──
+  cy+=6;
+  g.font='bold 16px "Courier New"'; g.fillStyle='#1a1916'; g.textAlign='center';
+  g.fillText('▶  HIRE ALLAN  ◀',CX,cy);
+  cy+=16;
+  g.font='12px "Courier New"'; g.fillStyle='#444'; g.textAlign='center';
+  g.fillText('ailun.pei@asu.edu',CX,cy);
+  cy+=8;
+  g.font='10px "Courier New"'; g.fillStyle='#888';
+  g.fillText('Graphics Eng · AI Builder · Creative Tech',CX,cy+12);
+  cy+=22; hr(false,1.5);
+
+  // ── BARCODE ──
+  cy+=6;
+  const bL=LP+8, bR=RP-8, bH=46;
+  const bars=[3,1,2,1,3,2,1,4,1,2,3,1,2,1,3,4,2,1,3,1,2,4,1,3,2,1,3,2,1];
+  const bSum=bars.reduce((s,v)=>s+v,0);
+  const bUnit=(bR-bL)/bSum;
+  let bx=bL;
+  bars.forEach((w,idx)=>{
+    const bw=w*bUnit;
+    if(idx%2===0){
+      g.fillStyle='#1a1916';
+      const h=bH*(idx%7===0?1.0:idx%3===0?0.88:0.75);
+      g.fillRect(bx,cy,bw-0.4,h);
+    }
+    bx+=bw;
+  });
+  cy+=bH+6;
+  g.font='9px "Courier New"'; g.fillStyle='#999'; g.textAlign='center';
+  g.fillText('A L L A N  P E I  2 0 2 6',CX,cy);
+  cy+=14;
+  g.font='9px "Courier New"'; g.fillStyle='#ccc';
+  g.fillText('POWERED BY CAFFEINE & WEBGL · GPU CYCLES APPRECIATED',CX,cy);
+
+  return new THREE.CanvasTexture(cv);
+}
+
+// ════════════════════════════════════════════════
+// THREE.JS SCENE
+// ════════════════════════════════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+
+const W=window.innerWidth, H=window.innerHeight;
+const camera = new THREE.PerspectiveCamera(48, W/H, 0.1, 100);
+camera.position.set(0, 0.30, 4.8);
+camera.lookAt(0, -0.20, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// ── Lights ──
+scene.add(new THREE.AmbientLight(0xfff8f2, 0.60));
+
+const sun = new THREE.DirectionalLight(0xfff5e4, 1.45);
+sun.position.set(-2.5, 4, 3.5);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-3; sun.shadow.camera.right=3;
+sun.shadow.camera.top=4;   sun.shadow.camera.bottom=-4;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0xe8f0ff, 0.38);
+fill.position.set(3, 1, 2);
+scene.add(fill);
+
+// Rim — simulates back-scatter light through thin paper
+const rim = new THREE.DirectionalLight(0xffe0c8, 0.20);
+rim.position.set(0, -2, -3);
+scene.add(rim);
+
+// ── Paper grain bump texture ──
+const grainCv=document.createElement('canvas');
+grainCv.width=grainCv.height=256;
+const gc=grainCv.getContext('2d');
+gc.fillStyle='#808080'; gc.fillRect(0,0,256,256);
+for(let i=0;i<9000;i++){
+  const v=90+Math.random()*130|0;
+  gc.fillStyle=`rgb(${v},${v},${v})`;
+  gc.fillRect(Math.random()*256,Math.random()*256,1,1);
+}
+const grainTex=new THREE.CanvasTexture(grainCv);
+
+// ── Receipt geometry ──
+const geo=new THREE.BufferGeometry();
+{
+  const pA=new Float32Array(N*3);
+  const nA=new Float32Array(N*3);
+  const uA=new Float32Array(N*2);
+  const idx=[];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const i=r*COLS+c;
+    uA[i*2]=c/(COLS-1);
+    uA[i*2+1]=1-r/(ROWS-1);
+  }
+  for(let r=0;r<ROWS-1;r++) for(let c=0;c<COLS-1;c++){
+    const tl=r*COLS+c, tr=tl+1, bl=tl+COLS, br=bl+1;
+    idx.push(tl,bl,tr, tr,bl,br);
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pA,3));
+  geo.setAttribute('normal',  new THREE.BufferAttribute(nA,3));
+  geo.setAttribute('uv',      new THREE.BufferAttribute(uA,2));
+  geo.setIndex(idx);
+}
+
+const mat=new THREE.MeshStandardMaterial({
+  map:      buildTexture(),
+  bumpMap:  grainTex,
+  bumpScale:0.009,
+  roughness:0.92,
+  metalness:0.00,
+  side:     THREE.DoubleSide,
+});
+
+const cloth=new THREE.Mesh(geo,mat);
+cloth.castShadow=true;
+cloth.receiveShadow=true;
+scene.add(cloth);
+
+// ── Rod ──
+const rodY=posY[0]+0.048;
+const rodMat=new THREE.MeshStandardMaterial({color:0xb0aca6,roughness:0.22,metalness:0.88});
+const rodMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,RW+0.42,22),rodMat);
+rodMesh.rotation.z=Math.PI/2;
+rodMesh.position.set(0,rodY,0.012);
+rodMesh.castShadow=true;
+scene.add(rodMesh);
+// Caps
+const capProto=new THREE.Mesh(new THREE.SphereGeometry(0.044,14,14),rodMat);
+[-1,1].forEach(sx=>{
+  const cap=capProto.clone();
+  cap.position.set(sx*(RW/2+0.21),rodY,0.012);
+  scene.add(cap);
+});
+
+// ── Clips ──
+const clipMat=new THREE.MeshStandardMaterial({color:0x7a7672,metalness:0.70,roughness:0.35});
+[posX[0]+0.02, posX[COLS-1]-0.02].forEach(cx=>{
+  const clip=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.13,0.058),clipMat);
+  clip.position.set(cx,rodY-0.065,0.012);
+  clip.castShadow=true;
+  scene.add(clip);
+});
+
+// ── Wall (shadow catcher) ──
+const wall=new THREE.Mesh(
+  new THREE.PlaneGeometry(12,10),
+  new THREE.MeshStandardMaterial({color:0xfafafa,roughness:1.0})
+);
+wall.position.z=-0.95;
+wall.receiveShadow=true;
+scene.add(wall);
+
+// ── Laser line ──
+const LASER_Y = -RH*0.5 - 0.38;
+const laserMat=new THREE.MeshBasicMaterial({color:0x00ff55});
+const laserMesh=new THREE.Mesh(new THREE.PlaneGeometry(RW+1.0,0.007),laserMat);
+laserMesh.position.set(0,LASER_Y,0.02);
+scene.add(laserMesh);
+
+// Laser soft glow (wide)
+const glowMat=new THREE.MeshBasicMaterial({
+  color:0x00ff55,transparent:true,opacity:0.13,
+  blending:THREE.AdditiveBlending,depthWrite:false
+});
+const glowMesh=new THREE.Mesh(new THREE.PlaneGeometry(RW+1.0,0.10),glowMat);
+glowMesh.position.set(0,LASER_Y,0.02);
+scene.add(glowMesh);
+
+// Laser label sprite
+const lblCv=document.createElement('canvas');
+lblCv.width=400;lblCv.height=48;
+const lblG=lblCv.getContext('2d');
+lblG.font='13px "Courier New"'; lblG.fillStyle='rgba(0,200,60,0.7)';
+lblG.textAlign='center'; lblG.fillText('▶  CLICK TO HIRE  ◀',200,30);
+const lblTex=new THREE.CanvasTexture(lblCv);
+const lblMat=new THREE.MeshBasicMaterial({map:lblTex,transparent:true,depthWrite:false});
+const lblMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.13),lblMat);
+lblMesh.position.set(0,LASER_Y-0.12,0.02);
+scene.add(lblMesh);
+
+// ════════════════════════════════════════════════
+// SYNC GEOMETRY FROM PHYSICS ARRAYS
+// ════════════════════════════════════════════════
+function syncGeo(){
+  const pa=geo.attributes.position.array;
+  for(let i=0;i<N;i++){
+    pa[i*3]=posX[i]; pa[i*3+1]=posY[i]; pa[i*3+2]=posZ[i];
+  }
+  geo.computeVertexNormals();
+  geo.attributes.position.needsUpdate=true;
+  geo.attributes.normal.needsUpdate=true;
+}
+
+// ════════════════════════════════════════════════
+// MOUSE / TOUCH INTERACTION
+// ════════════════════════════════════════════════
+const raycaster=new THREE.Raycaster();
+const mNDC=new THREE.Vector2();
+const dragPlane=new THREE.Plane();
+const hitPt=new THREE.Vector3();
+let dragIdx=-1, dragging=false;
+
+function toNDC(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  mNDC.x=(e.clientX-r.left)/r.width*2-1;
+  mNDC.y=-(e.clientY-r.top)/r.height*2+1;
+}
+
+function nearestParticle(hp){
+  let best=-1, bestD=Infinity;
+  for(let i=0;i<N;i++){
+    if(pin[i]) continue;
+    const dx=posX[i]-hp.x, dy=posY[i]-hp.y, dz=posZ[i]-hp.z;
+    const d=dx*dx+dy*dy+dz*dz;
+    if(d<bestD){bestD=d;best=i;}
+  }
+  return bestD<0.30 ? best : -1;
+}
+
+renderer.domElement.addEventListener('mousedown', e=>{
+  if(e.button!==0) return;
+  toNDC(e);
+  raycaster.setFromCamera(mNDC,camera);
+
+  // Check cloth first
+  const ch=raycaster.intersectObject(cloth);
+  if(ch.length){
+    const p=nearestParticle(ch[0].point);
+    if(p>=0){
+      dragIdx=p; dragging=true;
+      const n=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,2);
+      dragPlane.setFromNormalAndCoplanarPoint(n,ch[0].point);
+      renderer.domElement.style.cursor='grabbing';
+    }
+    return;
+  }
+  // Check laser + glow
+  if(raycaster.intersectObjects([laserMesh,glowMesh,lblMesh]).length) hire();
+});
+
+renderer.domElement.addEventListener('mousemove', e=>{
+  toNDC(e);
+  if(!dragging){
+    raycaster.setFromCamera(mNDC,camera);
+    const h=raycaster.intersectObject(cloth);
+    renderer.domElement.style.cursor=h.length?'grab':'default';
+    return;
+  }
+  raycaster.setFromCamera(mNDC,camera);
+  if(raycaster.ray.intersectPlane(dragPlane,hitPt)){
+    posX[dragIdx]=hitPt.x;
+    posY[dragIdx]=hitPt.y;
+    posZ[dragIdx]=Math.max(-2,Math.min(2,hitPt.z));
+    prvX[dragIdx]=posX[dragIdx];
+    prvY[dragIdx]=posY[dragIdx];
+    prvZ[dragIdx]=posZ[dragIdx];
+  }
+});
+const stopDrag=()=>{dragging=false;dragIdx=-1;renderer.domElement.style.cursor='default';};
+renderer.domElement.addEventListener('mouseup',stopDrag);
+renderer.domElement.addEventListener('mouseleave',stopDrag);
+
+// Touch
+renderer.domElement.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  toNDC(e.touches[0]);
+  raycaster.setFromCamera(mNDC,camera);
+  const ch=raycaster.intersectObject(cloth);
+  if(ch.length){
+    const p=nearestParticle(ch[0].point);
+    if(p>=0){
+      dragIdx=p; dragging=true;
+      const n=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,2);
+      dragPlane.setFromNormalAndCoplanarPoint(n,ch[0].point);
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(!dragging) return;
+  toNDC(e.touches[0]);
+  raycaster.setFromCamera(mNDC,camera);
+  if(raycaster.ray.intersectPlane(dragPlane,hitPt)){
+    posX[dragIdx]=hitPt.x; posY[dragIdx]=hitPt.y;
+    posZ[dragIdx]=Math.max(-2,Math.min(2,hitPt.z));
+    prvX[dragIdx]=posX[dragIdx]; prvY[dragIdx]=posY[dragIdx]; prvZ[dragIdx]=posZ[dragIdx];
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchend',stopDrag);
+
+// ════════════════════════════════════════════════
+// HIRE ACTION
+// ════════════════════════════════════════════════
+let hireTimer=null;
+function hire(){
+  if(hireTimer) return;
+  // Jolt the cloth
+  for(let i=COLS;i<N;i++){
+    if(!pin[i]){
+      posZ[i]+=(Math.random()-0.5)*0.4;
+      posX[i]+=(Math.random()-0.5)*0.07;
+    }
+  }
+  // Flash laser white
+  laserMat.color.set(0xffffff);
+  glowMat.color.set(0xffffff);
+  glowMat.opacity=0.90;
+  hireTimer=setTimeout(()=>{
+    laserMat.color.set(0x00ff55);
+    glowMat.color.set(0x00ff55);
+    glowMat.opacity=0.13;
+    hireTimer=null;
+    window.location.href='mailto:ailun.pei@asu.edu?subject=I%20want%20to%20hire%20you&body=Hi%20Allan,';
+  },650);
+}
+
+// ════════════════════════════════════════════════
+// MAIN LOOP
+// ════════════════════════════════════════════════
+let frame=0;
+function animate(t){
+  requestAnimationFrame(animate);
+  frame++;
+
+  // Subtle alive wind (bottom half only, every 2nd frame for perf)
+  if(frame%2===0){
+    const wt=t*0.00045;
+    for(let r=Math.floor(ROWS*0.55);r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const i=r*COLS+c;
+        if(!pin[i]) posZ[i]+=Math.sin(wt+c*0.85+r*0.28)*WIND;
+      }
+    }
+  }
+
+  physicsStep();
+  syncGeo();
+
+  // Laser pulse
+  const lp=0.5+0.5*Math.sin(t*0.0028);
+  if(!hireTimer) glowMat.opacity=0.07+lp*0.12;
+
+  // Very subtle camera drift (alive feel)
+  camera.position.x=0.0+Math.sin(t*0.00018)*0.025;
+  camera.position.y=0.3+Math.cos(t*0.00013)*0.012;
+  camera.lookAt(0,-0.20,0);
+
+  renderer.render(scene,camera);
+}
+
+// ════════════════════════════════════════════════
+// RESIZE
+// ════════════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
