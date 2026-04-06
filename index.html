@@ -1,22 +1,1354 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Enter Portfolio</title>
-  <link rel="stylesheet" href="style.css" />
-  <script defer>
-    function openDoor() {
-      document.getElementById('left-door').classList.add('open-left');
-      document.getElementById('right-door').classList.add('open-right');
-      setTimeout(() => {
-        window.location.href = 'main.html';
-      }, 1300);
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Allan Pei — Space Capsule Portfolio</title>
+  <style>
+    :root {
+      --bg: #f8f7f4;
+      --panel: #fafaf8;
+      --panel-2: #f5f4f1;
+      --line: rgba(0, 0, 0, 0.08);
+      --soft-line: rgba(0, 0, 0, 0.05);
+      --text: rgba(0, 0, 0, 0.72);
+      --text-soft: rgba(0, 0, 0, 0.38);
+      --ui: rgba(255, 255, 255, 0.72);
+      --ui-border: rgba(0, 0, 0, 0.12);
     }
-  </script>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* ===== ENTRY DOORS ===== */
+    #entry {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    .door {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      overflow: hidden;
+      pointer-events: none;
+      transition: transform 1.9s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.45s ease;
+      will-change: transform;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02)),
+        repeating-linear-gradient(90deg, transparent 0, transparent 42px, rgba(0, 0, 0, 0.011) 42px, rgba(0, 0, 0, 0.011) 43px),
+        linear-gradient(90deg, var(--panel), var(--panel-2));
+    }
+
+    .door.left {
+      left: 0;
+      box-shadow: inset -32px 0 64px rgba(0, 0, 0, 0.03), inset -1px 0 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .door.right {
+      right: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02)),
+        repeating-linear-gradient(90deg, transparent 0, transparent 42px, rgba(0, 0, 0, 0.011) 42px, rgba(0, 0, 0, 0.011) 43px),
+        linear-gradient(270deg, var(--panel), var(--panel-2));
+      box-shadow: inset 32px 0 64px rgba(0, 0, 0, 0.03), inset 1px 0 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .door.open-left {
+      transform: translateX(-100%);
+    }
+
+    .door.open-right {
+      transform: translateX(100%);
+    }
+
+    .door::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.14), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .door::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 2px;
+      height: 52px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.08);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    }
+
+    .door.left::after {
+      right: 28px;
+    }
+
+    .door.right::after {
+      left: 28px;
+    }
+
+    .frost-pane {
+      position: absolute;
+      top: 7%;
+      bottom: 7%;
+      left: 12%;
+      right: 12%;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.18)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow:
+        inset 0 0 40px rgba(255, 255, 255, 0.25),
+        inset 0 0 80px rgba(255, 255, 255, 0.18),
+        0 10px 40px rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(18px) saturate(0.95);
+      -webkit-backdrop-filter: blur(18px) saturate(0.95);
+      opacity: 0.98;
+    }
+
+    .frost-pane::before,
+    .frost-pane::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+
+    .frost-pane::before {
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.45), transparent 20%),
+        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.20), transparent 28%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, rgba(255, 255, 255, 0.01) 2px 4px);
+      mix-blend-mode: screen;
+      opacity: 0.9;
+    }
+
+    .frost-pane::after {
+      inset: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      opacity: 0.7;
+    }
+
+    #center-seam {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform: translateX(-0.5px);
+      background: rgba(0, 0, 0, 0.11);
+      z-index: 1;
+      transition: opacity 0.2s ease;
+    }
+
+    .frame-glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.06), transparent 40%),
+        linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+      opacity: 0.55;
+      animation: breathe 5.8s ease-in-out infinite;
+      mix-blend-mode: screen;
+    }
+
+    @keyframes breathe {
+
+      0%,
+      100% {
+        opacity: 0.32;
+      }
+
+      50% {
+        opacity: 0.62;
+      }
+    }
+
+    /* ===== ENTER UI ===== */
+    #enter-ui {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.45s ease;
+      pointer-events: none;
+    }
+
+    #enter-ui.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      pointer-events: none;
+      font: 400 11px/1.2 "Courier New", monospace;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: rgba(0, 0, 0, 0.3);
+      text-align: center;
+      padding: 0 20px;
+    }
+
+    #enter-btn {
+      pointer-events: auto;
+      appearance: none;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      background: rgba(255, 255, 255, 0.4);
+      color: rgba(0, 0, 0, 0.58);
+      font: 400 11px/1 "Courier New", monospace;
+      letter-spacing: 0.55em;
+      text-transform: uppercase;
+      padding: 15px 38px 15px 44px;
+      border-radius: 999px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28) inset;
+      transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+
+    #enter-btn:hover,
+    #enter-btn:focus-visible {
+      transform: translateY(-1px);
+      color: rgba(0, 0, 0, 0.82);
+      border-color: rgba(0, 0, 0, 0.28);
+      box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.035), 0 0 0 1px rgba(255, 255, 255, 0.34) inset;
+      outline: none;
+    }
+
+    /* ===== UI INSIDE CAPSULE ===== */
+    #hud {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+
+    #hud.show {
+      opacity: 1;
+    }
+
+    #topbar {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      top: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .top-left,
+    .top-right {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: "Courier New", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-size: 10px;
+      color: rgba(0, 0, 0, 0.34);
+    }
+
+    .top-right {
+      text-align: right;
+    }
+
+    #bottom-nav {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .nav-btn {
+      appearance: none;
+      border: 1px solid var(--ui-border);
+      background: var(--ui);
+      color: rgba(0, 0, 0, 0.56);
+      padding: 10px 16px;
+      border-radius: 999px;
+      font: 400 10px/1 "Courier New", monospace;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover,
+    .nav-btn:focus-visible {
+      outline: none;
+      color: rgba(0, 0, 0, 0.84);
+      border-color: rgba(0, 0, 0, 0.24);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    #proj-counter {
+      min-width: 74px;
+      text-align: center;
+      font: 400 10px/1 "Courier New", monospace;
+      letter-spacing: 0.36em;
+      color: rgba(0, 0, 0, 0.34);
+      text-transform: uppercase;
+    }
+
+    #project-dock {
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: min(24vw, 320px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .dock-card {
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.58);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+      transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+      cursor: pointer;
+    }
+
+    .dock-card:hover,
+    .dock-card.active {
+      transform: translateX(-4px);
+      border-color: rgba(0, 0, 0, 0.16);
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .dock-index {
+      font: 400 10px/1 "Courier New", monospace;
+      letter-spacing: 0.24em;
+      color: rgba(0, 0, 0, 0.28);
+      margin-bottom: 7px;
+    }
+
+    .dock-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: rgba(0, 0, 0, 0.78);
+      margin-bottom: 4px;
+    }
+
+    .dock-meta {
+      font-size: 11px;
+      color: rgba(0, 0, 0, 0.46);
+      line-height: 1.4;
+    }
+
+    #hint {
+      position: absolute;
+      left: 28px;
+      bottom: 28px;
+      font: 400 10px/1.4 "Courier New", monospace;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(0, 0, 0, 0.26);
+      pointer-events: none;
+    }
+
+    @media (max-width: 980px) {
+      #project-dock {
+        width: min(42vw, 320px);
+      }
+
+      .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.3em;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .frost-pane {
+        left: 7%;
+        right: 7%;
+        border-radius: 18px;
+      }
+
+      #project-dock {
+        display: none;
+      }
+
+      #topbar {
+        left: 16px;
+        right: 16px;
+        top: 14px;
+      }
+
+      #bottom-nav {
+        gap: 8px;
+        bottom: 16px;
+      }
+
+      .nav-btn {
+        padding: 9px 12px;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+      }
+
+      #proj-counter {
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        min-width: 56px;
+      }
+
+      #hint {
+        left: 16px;
+        bottom: 72px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+      }
+    }
+  </style>
 </head>
+
 <body>
-  <div id="left-door" class="door"></div>
-  <div id="right-door" class="door"></div>
-  <div class="enter-button" onclick="openDoor()">ENTER</div>
+  <canvas id="scene"></canvas>
+
+  <div id="entry" aria-hidden="false">
+    <div class="frame-glow"></div>
+    <div class="door left" id="door-left">
+      <div class="frost-pane"></div>
+    </div>
+    <div class="door right" id="door-right">
+      <div class="frost-pane"></div>
+    </div>
+    <div id="center-seam"></div>
+  </div>
+
+  <div id="enter-ui">
+    <div class="eyebrow">Allan Pei · White Capsule Portfolio · Real-Time Graphics</div>
+    <button id="enter-btn" aria-label="Enter portfolio">Enter</button>
+  </div>
+
+  <div id="hud">
+    <div id="topbar">
+      <div class="top-left">
+        <span>Allan Pei</span>
+        <span>Space Capsule Portfolio</span>
+      </div>
+      <div class="top-right">
+        <span>Graphics Engineer</span>
+        <span>Auto Cycle · 7s</span>
+      </div>
+    </div>
+
+    <div id="project-dock"></div>
+
+    <div id="bottom-nav">
+      <button class="nav-btn" id="prev-btn">◀ Prev</button>
+      <div id="proj-counter">01 / 06</div>
+      <button class="nav-btn" id="next-btn">Next ▶</button>
+    </div>
+
+    <div id="hint">Arrow keys / buttons · one screen · one project at a time</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
+
+    const PROJECTS = [
+      {
+        title: 'AI Shader Studio',
+        sub: 'Natural Language → GLSL',
+        desc: 'Pixelated wave-field demo language for shader ideation and rapid visual prototyping.',
+        anim: 'shaderWave'
+      },
+      {
+        title: 'WebGL Playground',
+        sub: 'Editor + Live Preview',
+        desc: 'Code-editor inspired viewport with cursor pulse, grid lines, and live panel telemetry.',
+        anim: 'editor'
+      },
+      {
+        title: 'Thermal Receipt Resume',
+        sub: 'Physics Receipt',
+        desc: 'Animated white receipt surface bending in space with live text bands and thermal artifacts.',
+        anim: 'receipt'
+      },
+      {
+        title: 'Qi Men Dun Jia',
+        sub: 'Rotating Eight Trigrams',
+        desc: 'Minimal luminous bagua rotation and concentric symbolic rings.',
+        anim: 'bagua'
+      },
+      {
+        title: 'DARPA ASIST',
+        sub: 'Multi-Agent Network',
+        desc: 'Node graph with packets flowing across edges, emphasizing live systems analysis.',
+        anim: 'network'
+      },
+      {
+        title: 'Ceramic Sculpture',
+        sub: 'Digital Archive',
+        desc: 'Abstract contour study inspired by documented ceramic forms and spatial silhouettes.',
+        anim: 'ceramic'
+      }
+    ];
+
+    // ===== DOM =====
+    const sceneCanvas = document.getElementById('scene');
+    const enterBtn = document.getElementById('enter-btn');
+    const enterUI = document.getElementById('enter-ui');
+    const hud = document.getElementById('hud');
+    const doorLeft = document.getElementById('door-left');
+    const doorRight = document.getElementById('door-right');
+    const seam = document.getElementById('center-seam');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const projCounter = document.getElementById('proj-counter');
+    const dock = document.getElementById('project-dock');
+
+    PROJECTS.forEach((p, i) => {
+      const card = document.createElement('button');
+      card.className = 'dock-card';
+      card.innerHTML = `
+        <div class="dock-index">${String(i + 1).padStart(2, '0')}</div>
+        <div class="dock-title">${p.title}</div>
+        <div class="dock-meta">${p.sub}</div>
+      `;
+      card.addEventListener('click', () => goToProject(i));
+      dock.appendChild(card);
+    });
+
+    function syncDock() {
+      [...dock.children].forEach((el, i) => {
+        el.classList.toggle('active', i === currentProject);
+      });
+      projCounter.textContent = `${String(currentProject + 1).padStart(2, '0')} / ${String(PROJECTS.length).padStart(2, '0')}`;
+    }
+
+    // ===== THREE =====
+    const renderer = new THREE.WebGLRenderer({
+      canvas: sceneCanvas,
+      antialias: true,
+      alpha: false
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#f8f7f4');
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 2.35);
+    camera.lookAt(0, 0, -12);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+
+    const ceilingGlow = new THREE.PointLight(0xffffff, 0.12, 40, 2);
+    ceilingGlow.position.set(0, 2.2, -6.8);
+    scene.add(ceilingGlow);
+
+    const frontFill = new THREE.PointLight(0xf4f8ff, 0.12, 24, 2);
+    frontFill.position.set(0, 0.2, -2.5);
+    scene.add(frontFill);
+
+    const backScreenLight = new THREE.PointLight(0xeef5ff, 0.22, 20, 2);
+    backScreenLight.position.set(0, 0.5, -12.6);
+    scene.add(backScreenLight);
+
+    function roundedRectShape(w, h, r) {
+      const s = new THREE.Shape();
+      s.moveTo(-w / 2 + r, -h / 2);
+      s.lineTo(w / 2 - r, -h / 2);
+      s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+      s.lineTo(w / 2, h / 2 - r);
+      s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+      s.lineTo(-w / 2 + r, h / 2);
+      s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+      s.lineTo(-w / 2, -h / 2 + r);
+      s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+      return s;
+    }
+
+    const capsule = new THREE.Group();
+    scene.add(capsule);
+
+    const capsuleWidth = 6.4;
+    const capsuleHeight = 4.4;
+    const capsuleDepth = 14.5;
+    const capsuleRadius = 0.58;
+
+    const shellShape = roundedRectShape(capsuleWidth, capsuleHeight, capsuleRadius);
+    const shellGeo = new THREE.ExtrudeGeometry(shellShape, {
+      depth: capsuleDepth,
+      bevelEnabled: false,
+      curveSegments: 18
+    });
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: '#fbfbf9',
+      roughness: 0.95,
+      metalness: 0.0,
+      side: THREE.BackSide
+    });
+    const shell = new THREE.Mesh(shellGeo, shellMat);
+    shell.position.z = -capsuleDepth;
+    capsule.add(shell);
+
+    // floor
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(capsuleWidth - 0.7, capsuleDepth - 0.9),
+      new THREE.MeshStandardMaterial({ color: '#efede8', roughness: 0.97, metalness: 0 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, -capsuleHeight / 2 + 0.04, -capsuleDepth / 2 + 0.15);
+    capsule.add(floor);
+
+    const floorCenter = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.08, capsuleDepth - 1.1),
+      new THREE.MeshBasicMaterial({ color: '#d6d2cb', transparent: true, opacity: 0.85 })
+    );
+    floorCenter.rotation.x = -Math.PI / 2;
+    floorCenter.position.set(0, -capsuleHeight / 2 + 0.05, -capsuleDepth / 2 + 0.15);
+    capsule.add(floorCenter);
+
+    // floor strips
+    for (let i = -2; i <= 2; i++) {
+      if (i === 0) continue;
+      const strip = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.04, capsuleDepth - 1.2),
+        new THREE.MeshBasicMaterial({ color: '#e1ddd7', transparent: true, opacity: 0.65 })
+      );
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(i * 0.68, -capsuleHeight / 2 + 0.048, -capsuleDepth / 2 + 0.15);
+      capsule.add(strip);
+    }
+
+    // ceiling strip
+    const ceilingStrip = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.72, capsuleDepth - 1.5),
+      new THREE.MeshBasicMaterial({ color: '#eef6ff', transparent: true, opacity: 0.45 })
+    );
+    ceilingStrip.rotation.x = Math.PI / 2;
+    ceilingStrip.position.set(0, capsuleHeight / 2 - 0.03, -capsuleDepth / 2 + 0.2);
+    capsule.add(ceilingStrip);
+
+    // ribs
+    function ringGeometry(outerW, outerH, innerW, innerH, r) {
+      const outer = roundedRectShape(outerW, outerH, r);
+      const inner = roundedRectShape(innerW, innerH, Math.max(0.06, r - 0.08));
+      outer.holes.push(inner);
+      return new THREE.ShapeGeometry(outer, 18);
+    }
+
+    const ribMat = new THREE.MeshStandardMaterial({ color: '#e7e4de', roughness: 0.92, metalness: 0.04, side: THREE.DoubleSide });
+    for (let z = -1.4; z >= -12.4; z -= 1.8) {
+      const rib = new THREE.Mesh(
+        ringGeometry(capsuleWidth, capsuleHeight, capsuleWidth - 0.16, capsuleHeight - 0.16, capsuleRadius),
+        ribMat
+      );
+      rib.position.z = z;
+      capsule.add(rib);
+    }
+
+    // side seam details
+    const edgeMat = new THREE.MeshBasicMaterial({ color: '#dcd8d2' });
+    [
+      [-capsuleWidth / 2 + 0.33, capsuleHeight / 2 - 0.33],
+      [capsuleWidth / 2 - 0.33, capsuleHeight / 2 - 0.33],
+      [-capsuleWidth / 2 + 0.33, -capsuleHeight / 2 + 0.33],
+      [capsuleWidth / 2 - 0.33, -capsuleHeight / 2 + 0.33],
+    ].forEach(([x, y]) => {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, capsuleDepth - 1.2), edgeMat);
+      edge.position.set(x, y, -capsuleDepth / 2 + 0.4);
+      capsule.add(edge);
+    });
+
+    // back wall
+    const backWall = new THREE.Mesh(
+      new THREE.ShapeGeometry(roundedRectShape(capsuleWidth, capsuleHeight, capsuleRadius), 18),
+      new THREE.MeshStandardMaterial({ color: '#f4f3f0', roughness: 0.95, metalness: 0 })
+    );
+    backWall.position.z = -capsuleDepth + 0.02;
+    capsule.add(backWall);
+
+    // ===== SCREEN =====
+    const SCREEN_W = 1600;
+    const SCREEN_H = 980;
+    const screenCanvas = document.createElement('canvas');
+    screenCanvas.width = SCREEN_W;
+    screenCanvas.height = SCREEN_H;
+    const sctx = screenCanvas.getContext('2d');
+
+    const screenTexture = new THREE.CanvasTexture(screenCanvas);
+    screenTexture.colorSpace = THREE.SRGBColorSpace;
+
+    const screenShape = roundedRectShape(5.78, 3.92, 0.48);
+    const screenGeo = new THREE.ShapeGeometry(screenShape, 24);
+    const pos = screenGeo.attributes.position;
+    const uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) {
+      uv[i * 2] = (pos.getX(i) + 2.89) / 5.78;
+      uv[i * 2 + 1] = (pos.getY(i) + 1.96) / 3.92;
+    }
+    screenGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+
+    const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
+    const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+    screenMesh.position.z = -13.82;
+    capsule.add(screenMesh);
+
+    const bezelShape = roundedRectShape(5.92, 4.05, 0.53);
+    bezelShape.holes.push(roundedRectShape(5.78, 3.92, 0.48));
+    const bezel = new THREE.Mesh(
+      new THREE.ShapeGeometry(bezelShape, 24),
+      new THREE.MeshStandardMaterial({ color: '#d7d3cd', roughness: 0.8, metalness: 0.06, side: THREE.DoubleSide })
+    );
+    bezel.position.z = -13.81;
+    capsule.add(bezel);
+
+    const glow = new THREE.Mesh(
+      new THREE.ShapeGeometry(roundedRectShape(6.06, 4.18, 0.62), 24),
+      new THREE.MeshBasicMaterial({ color: '#edf5ff', transparent: true, opacity: 0.28, side: THREE.DoubleSide })
+    );
+    glow.position.z = -13.86;
+    capsule.add(glow);
+
+    // ===== PROJECT SCREEN DRAW =====
+    let currentProject = 0;
+    let fromProject = 0;
+    let toProject = 0;
+    let transition = 1;
+    let autoTimer = 0;
+    const AUTO_DURATION = 7;
+    const TRANSITION_DURATION = 1.15;
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+    function drawRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawGridBase() {
+      sctx.fillStyle = '#fafaf8';
+      sctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+
+      sctx.save();
+      sctx.strokeStyle = 'rgba(0,0,0,0.035)';
+      sctx.lineWidth = 1;
+      for (let x = 0; x < SCREEN_W; x += 44) {
+        sctx.beginPath();
+        sctx.moveTo(x, 0);
+        sctx.lineTo(x, SCREEN_H);
+        sctx.stroke();
+      }
+      for (let y = 0; y < SCREEN_H; y += 44) {
+        sctx.beginPath();
+        sctx.moveTo(0, y);
+        sctx.lineTo(SCREEN_W, y);
+        sctx.stroke();
+      }
+      sctx.restore();
+
+      sctx.fillStyle = 'rgba(0,0,0,0.025)';
+      sctx.fillRect(0, 0, SCREEN_W, 42);
+      sctx.fillStyle = 'rgba(0,0,0,0.065)';
+      sctx.fillRect(0, 41, SCREEN_W, 1);
+
+      sctx.font = '400 11px Courier New';
+      sctx.fillStyle = 'rgba(0,0,0,0.28)';
+      sctx.fillText('WHITE CAPSULE DISPLAY · ONE SCREEN · ONE PROJECT', 22, 26);
+    }
+
+    function drawSidebar(project, alpha) {
+      const x = SCREEN_W * 0.63;
+      const y = 122;
+      const w = SCREEN_W * 0.29;
+      const h = SCREEN_H * 0.68;
+
+      sctx.save();
+      sctx.globalAlpha = alpha;
+      sctx.fillStyle = 'rgba(255,255,255,0.72)';
+      drawRoundRect(sctx, x, y, w, h, 26);
+      sctx.fill();
+      sctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      sctx.lineWidth = 1;
+      drawRoundRect(sctx, x, y, w, h, 26);
+      sctx.stroke();
+
+      sctx.font = '400 88px Georgia';
+      sctx.fillStyle = 'rgba(0,0,0,0.08)';
+      sctx.fillText(String(PROJECTS.indexOf(project) + 1).padStart(2, '0'), x + 24, y + 92);
+
+      sctx.font = '700 30px Inter, sans-serif';
+      sctx.fillStyle = 'rgba(0,0,0,0.82)';
+      sctx.fillText(project.title, x + 24, y + 138);
+
+      sctx.font = '400 12px Courier New';
+      sctx.fillStyle = 'rgba(0,0,0,0.42)';
+      sctx.fillText(project.sub.toUpperCase(), x + 24, y + 165);
+
+      const grad = sctx.createLinearGradient(x + 24, 0, x + w - 24, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0.18)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.02)');
+      sctx.fillStyle = grad;
+      sctx.fillRect(x + 24, y + 184, w - 48, 1);
+
+      sctx.font = '400 16px/1.6 Inter, sans-serif';
+      sctx.fillStyle = 'rgba(0,0,0,0.54)';
+      wrapText(sctx, project.desc, x + 24, y + 228, w - 48, 27);
+
+      const labels = ['Live Demo Slot', 'Video Embed Slot', 'Case Study Slot', 'Future Links'];
+      let yy = y + 360;
+      labels.forEach((label, i) => {
+        sctx.fillStyle = 'rgba(0,0,0,0.04)';
+        drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+        sctx.fill();
+        sctx.strokeStyle = 'rgba(0,0,0,0.06)';
+        drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+        sctx.stroke();
+        sctx.font = '400 12px Courier New';
+        sctx.fillStyle = 'rgba(0,0,0,0.34)';
+        sctx.fillText(`${String(i + 1).padStart(2, '0')}  ${label.toUpperCase()}`, x + 40, yy + 28);
+        yy += 60;
+      });
+
+      sctx.font = '400 11px Courier New';
+      sctx.fillStyle = 'rgba(0,0,0,0.25)';
+      sctx.fillText('AUTO CROSSFADE · 7S CYCLE · CLICK DOCK TO JUMP', x + 24, y + h - 26);
+      sctx.restore();
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = text.split(' ');
+      let line = '';
+      for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + ' ';
+        if (ctx.measureText(test).width > maxWidth && line) {
+          ctx.fillText(line.trim(), x, y);
+          line = words[i] + ' ';
+          y += lineHeight;
+        } else {
+          line = test;
+        }
+      }
+      if (line) ctx.fillText(line.trim(), x, y);
+    }
+
+    function drawProjectVisual(project, time, alpha) {
+      const x = 56;
+      const y = 92;
+      const w = SCREEN_W * 0.53;
+      const h = SCREEN_H * 0.8;
+
+      sctx.save();
+      sctx.globalAlpha = alpha;
+      sctx.fillStyle = 'rgba(255,255,255,0.44)';
+      drawRoundRect(sctx, x, y, w, h, 28);
+      sctx.fill();
+      sctx.strokeStyle = 'rgba(0,0,0,0.075)';
+      drawRoundRect(sctx, x, y, w, h, 28);
+      sctx.stroke();
+      sctx.restore();
+
+      sctx.save();
+      sctx.beginPath();
+      drawRoundRect(sctx, x + 14, y + 14, w - 28, h - 28, 22);
+      sctx.clip();
+
+      switch (project.anim) {
+        case 'shaderWave': drawShaderWave(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+        case 'editor': drawEditor(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+        case 'receipt': drawReceipt(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+        case 'bagua': drawBagua(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+        case 'network': drawNetwork(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+        case 'ceramic': drawCeramic(x + 14, y + 14, w - 28, h - 28, time, alpha); break;
+      }
+      sctx.restore();
+
+      sctx.save();
+      sctx.globalAlpha = alpha;
+      sctx.strokeStyle = 'rgba(0,0,0,0.05)';
+      sctx.strokeRect(x + 22, y + 22, w - 44, h - 44);
+      sctx.restore();
+    }
+
+    function drawShaderWave(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f9f9f7';
+      sctx.fillRect(x, y, w, h);
+      const step = 12;
+      for (let gy = 0; gy < h; gy += step) {
+        for (let gx = 0; gx < w; gx += step) {
+          const nx = gx / w;
+          const ny = gy / h;
+          const v = Math.sin(nx * 9 + t * 0.9) + Math.cos(ny * 11 - t * 0.65) + Math.sin((nx + ny) * 13 - t * 0.45);
+          const c = Math.floor(243 + v * 4.5);
+          sctx.fillStyle = `rgba(${c},${c},${c - 2},${0.88 * a})`;
+          sctx.fillRect(x + gx, y + gy, step - 1, step - 1);
+        }
+      }
+      sctx.strokeStyle = `rgba(0,0,0,${0.12 * a})`;
+      sctx.lineWidth = 1;
+      for (let i = 0; i < 18; i++) {
+        sctx.beginPath();
+        for (let px = 0; px <= w; px += 6) {
+          const py = y + 40 + i * 26 + Math.sin(px * 0.013 + t * 1.2 + i * 0.35) * (8 + i * 0.6);
+          if (px === 0) sctx.moveTo(x + px, py);
+          else sctx.lineTo(x + px, py);
+        }
+        sctx.stroke();
+      }
+    }
+
+    function drawEditor(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f7f7f5';
+      sctx.fillRect(x, y, w, h);
+      sctx.fillStyle = 'rgba(0,0,0,0.04)';
+      sctx.fillRect(x, y, w, 40);
+      sctx.fillStyle = 'rgba(0,0,0,0.11)';
+      [26, 44, 62].forEach(cx => { sctx.beginPath(); sctx.arc(x + cx, y + 20, 5, 0, Math.PI * 2); sctx.fill(); });
+
+      sctx.fillStyle = 'rgba(0,0,0,0.03)';
+      sctx.fillRect(x, y + 40, w * 0.2, h - 40);
+      for (let i = 0; i < 14; i++) {
+        sctx.fillStyle = i === 2 ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.035)';
+        drawRoundRect(sctx, x + 16, y + 58 + i * 34, w * 0.16, 20, 8);
+        sctx.fill();
+      }
+
+      sctx.font = '400 18px Courier New';
+      const lines = [
+        'uniform float u_time;',
+        'vec2 uv = fragCoord / iResolution.xy;',
+        'float wave = sin(uv.x * 12. + u_time);',
+        'wave += cos(uv.y * 14. - u_time * 0.7);',
+        'vec3 col = vec3(0.96 + wave * 0.02);',
+        'fragColor = vec4(col, 1.0);'
+      ];
+      lines.forEach((line, i) => {
+        sctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.62)' : 'rgba(0,0,0,0.48)';
+        sctx.fillText(line, x + w * 0.26, y + 96 + i * 52);
+      });
+
+      const cursorAlpha = (Math.sin(t * 5.5) + 1) * 0.5;
+      sctx.fillStyle = `rgba(0,0,0,${0.15 + cursorAlpha * 0.65})`;
+      sctx.fillRect(x + w * 0.26 + 178, y + 96 + 5 * 52 - 18, 12, 26);
+
+      for (let gx = 0; gx <= w * 0.44; gx += 22) {
+        sctx.strokeStyle = 'rgba(0,0,0,0.035)';
+        sctx.beginPath();
+        sctx.moveTo(x + w * 0.56 + gx, y + 60);
+        sctx.lineTo(x + w * 0.56 + gx, y + h - 30);
+        sctx.stroke();
+      }
+      for (let gy = 0; gy <= h - 90; gy += 22) {
+        sctx.beginPath();
+        sctx.moveTo(x + w * 0.56, y + 60 + gy);
+        sctx.lineTo(x + w - 24, y + 60 + gy);
+        sctx.stroke();
+      }
+      sctx.strokeStyle = 'rgba(0,0,0,0.14)';
+      sctx.beginPath();
+      for (let i = 0; i <= 60; i++) {
+        const px = x + w * 0.56 + (i / 60) * (w * 0.4);
+        const py = y + h * 0.67 + Math.sin(i * 0.32 + t * 1.1) * 28;
+        if (i === 0) sctx.moveTo(px, py);
+        else sctx.lineTo(px, py);
+      }
+      sctx.stroke();
+    }
+
+    function drawReceipt(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f7f7f3';
+      sctx.fillRect(x, y, w, h);
+      const rw = Math.min(360, w * 0.42);
+      const rh = h * 0.8;
+      const cx = x + w * 0.48;
+      const cy = y + h * 0.52;
+      sctx.save();
+      sctx.translate(cx, cy);
+      sctx.rotate(Math.sin(t * 0.5) * 0.08 - 0.05);
+      const warp = Math.sin(t * 1.1) * 16;
+      sctx.beginPath();
+      sctx.moveTo(-rw / 2, -rh / 2);
+      sctx.quadraticCurveTo(-rw / 4, -rh / 2 + warp, 0, -rh / 2 + 4);
+      sctx.quadraticCurveTo(rw / 4, -rh / 2 - warp, rw / 2, -rh / 2 + 2);
+      sctx.lineTo(rw / 2, rh / 2 - 18);
+      for (let i = 0; i < 18; i++) {
+        const px = rw / 2 - i * (rw / 18);
+        const py = rh / 2 + (i % 2 === 0 ? 8 : 0);
+        sctx.lineTo(px, py);
+      }
+      sctx.lineTo(-rw / 2, rh / 2 - 8);
+      sctx.closePath();
+      sctx.fillStyle = 'rgba(255,255,255,0.95)';
+      sctx.shadowColor = 'rgba(0,0,0,0.08)';
+      sctx.shadowBlur = 22;
+      sctx.shadowOffsetY = 10;
+      sctx.fill();
+      sctx.shadowBlur = 0;
+
+      sctx.fillStyle = 'rgba(0,0,0,0.08)';
+      sctx.fillRect(-rw / 2 + 20, -rh / 2 + 26, rw - 40, 20);
+      sctx.font = '400 13px Courier New';
+      sctx.fillStyle = 'rgba(0,0,0,0.56)';
+      const lines = [
+        'THERMAL RECEIPT RESUME',
+        'Graphics Engineer',
+        'Three.js · Verlet Cloth',
+        'WebGL · Interactive UI',
+        'Single-file deployable demo',
+        'Ready for link / video embeds'
+      ];
+      lines.forEach((line, i) => {
+        sctx.fillText(line, -rw / 2 + 24, -rh / 2 + 84 + i * 42 + Math.sin(t * 1.4 + i) * 2);
+      });
+      for (let i = 0; i < 11; i++) {
+        sctx.fillStyle = `rgba(0,0,0,${0.05 + (i % 3) * 0.02})`;
+        sctx.fillRect(-rw / 2 + 24, -rh / 2 + 360 + i * 22, rw * (0.48 + (i % 4) * 0.1), 8);
+      }
+      sctx.restore();
+    }
+
+    function drawBagua(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f8f8f6';
+      sctx.fillRect(x, y, w, h);
+      const cx = x + w * 0.5;
+      const cy = y + h * 0.5;
+      sctx.save();
+      sctx.translate(cx, cy);
+      sctx.rotate(t * 0.28);
+      sctx.strokeStyle = 'rgba(0,0,0,0.14)';
+      sctx.lineWidth = 2;
+      for (let r = 72; r <= 226; r += 34) {
+        sctx.beginPath();
+        sctx.arc(0, 0, r, 0, Math.PI * 2);
+        sctx.stroke();
+      }
+      for (let i = 0; i < 8; i++) {
+        sctx.save();
+        sctx.rotate((Math.PI * 2 * i) / 8);
+        sctx.translate(0, -176);
+        drawTrigram(sctx, 0, 0, i);
+        sctx.restore();
+      }
+      sctx.restore();
+
+      sctx.save();
+      sctx.translate(cx, cy);
+      sctx.rotate(-t * 0.15);
+      for (let i = 0; i < 9; i++) {
+        sctx.strokeStyle = `rgba(0,0,0,${0.04 + i * 0.01})`;
+        sctx.beginPath();
+        sctx.arc(0, 0, 42 + i * 16, i * 0.3 + t * 0.2, i * 0.3 + t * 0.2 + Math.PI * 1.4);
+        sctx.stroke();
+      }
+      sctx.restore();
+    }
+
+    function drawTrigram(ctx, x, y, index) {
+      const patterns = [
+        [1, 1, 1], [1, 1, 0], [1, 0, 1], [1, 0, 0], [0, 1, 1], [0, 1, 0], [0, 0, 1], [0, 0, 0]
+      ];
+      const rows = patterns[index % patterns.length];
+      rows.forEach((bit, i) => {
+        const yy = y + i * 16;
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+        if (bit) {
+          ctx.beginPath();
+          ctx.moveTo(-22, yy);
+          ctx.lineTo(22, yy);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-22, yy);
+          ctx.lineTo(-6, yy);
+          ctx.moveTo(6, yy);
+          ctx.lineTo(22, yy);
+          ctx.stroke();
+        }
+      });
+    }
+
+    function drawNetwork(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f7f7f5';
+      sctx.fillRect(x, y, w, h);
+      const nodes = [];
+      const cols = 6;
+      const rows = 4;
+      for (let iy = 0; iy < rows; iy++) {
+        for (let ix = 0; ix < cols; ix++) {
+          nodes.push({
+            x: x + 100 + ix * ((w - 200) / (cols - 1)) + Math.sin(t * 0.5 + ix + iy * 0.7) * 9,
+            y: y + 90 + iy * ((h - 180) / (rows - 1)) + Math.cos(t * 0.6 + iy + ix * 0.5) * 8
+          });
+        }
+      }
+      sctx.strokeStyle = 'rgba(0,0,0,0.09)';
+      sctx.lineWidth = 1.2;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d < 220) {
+            sctx.beginPath();
+            sctx.moveTo(nodes[i].x, nodes[i].y);
+            sctx.lineTo(nodes[j].x, nodes[j].y);
+            sctx.stroke();
+
+            const flow = ((t * 0.26 + i * 0.07 + j * 0.03) % 1);
+            const px = lerp(nodes[i].x, nodes[j].x, flow);
+            const py = lerp(nodes[i].y, nodes[j].y, flow);
+            sctx.fillStyle = 'rgba(0,0,0,0.22)';
+            sctx.beginPath();
+            sctx.arc(px, py, 3.2, 0, Math.PI * 2);
+            sctx.fill();
+          }
+        }
+      }
+      nodes.forEach((n, i) => {
+        const pulse = (Math.sin(t * 2.1 + i * 0.6) + 1) * 0.5;
+        sctx.fillStyle = `rgba(0,0,0,${0.14 + pulse * 0.24})`;
+        sctx.beginPath();
+        sctx.arc(n.x, n.y, 6 + pulse * 3, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.fillStyle = 'rgba(255,255,255,0.9)';
+        sctx.beginPath();
+        sctx.arc(n.x, n.y, 2.4, 0, Math.PI * 2);
+        sctx.fill();
+      });
+    }
+
+    function drawCeramic(x, y, w, h, t, a) {
+      sctx.fillStyle = '#f7f7f5';
+      sctx.fillRect(x, y, w, h);
+      const cx = x + w * 0.5;
+      const cy = y + h * 0.54;
+      sctx.save();
+      sctx.translate(cx, cy);
+      sctx.strokeStyle = 'rgba(0,0,0,0.16)';
+      sctx.lineWidth = 1.25;
+      for (let i = 0; i < 18; i++) {
+        sctx.beginPath();
+        const rx = 110 + i * 10 + Math.sin(t * 0.5 + i * 0.45) * 4;
+        const ry = 150 + i * 6 + Math.cos(t * 0.5 + i * 0.3) * 3;
+        for (let a2 = 0; a2 <= Math.PI * 2 + 0.08; a2 += 0.06) {
+          const bulge = 1 + Math.sin(a2 * 3 + t * 0.8 + i * 0.2) * 0.04 + Math.cos(a2 * 5 - t * 0.6) * 0.025;
+          const px = Math.cos(a2) * rx * bulge;
+          const py = Math.sin(a2) * ry * (0.94 + Math.sin(a2 * 2 + i * 0.15) * 0.04);
+          if (a2 === 0) sctx.moveTo(px, py);
+          else sctx.lineTo(px, py);
+        }
+        sctx.stroke();
+      }
+      sctx.restore();
+    }
+
+    function drawScreen(time) {
+      drawGridBase();
+      if (transition < 1) {
+        drawProjectVisual(PROJECTS[fromProject], time, 1 - transition);
+        drawSidebar(PROJECTS[fromProject], 1 - transition);
+        drawProjectVisual(PROJECTS[toProject], time, transition);
+        drawSidebar(PROJECTS[toProject], transition);
+      } else {
+        drawProjectVisual(PROJECTS[currentProject], time, 1);
+        drawSidebar(PROJECTS[currentProject], 1);
+      }
+      screenTexture.needsUpdate = true;
+    }
+
+    function goToProject(index) {
+      if (index === currentProject || transition < 1) return;
+      fromProject = currentProject;
+      toProject = index;
+      transition = 0;
+      autoTimer = 0;
+    }
+
+    function advance(dir) {
+      if (transition < 1) return;
+      goToProject((currentProject + dir + PROJECTS.length) % PROJECTS.length);
+    }
+    // ══════════════════════════════════════════
+    // EVENTS
+    // ══════════════════════════════════════════
+    prevBtn.addEventListener('click', () => advance(-1));
+    nextBtn.addEventListener('click', () => advance(1));
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') advance(-1);
+      if (e.key === 'ArrowRight') advance(1);
+      if (e.key === 'Enter' && state === 'ready') openSequence();
+    });
+
+
+
+    window.addEventListener('resize', () => {
+      camera.aspect = W() / H(); camera.updateProjectionMatrix();
+      renderer.setSize(W(), H());
+    });
+
+
+    // ===== Animation state =====
+    let state = 'ready'; // ready -> opening -> flying -> interior
+    let openStart = 0;
+    let flyStart = 0;
+    let openedAt = 0;
+    const clock = new THREE.Clock();
+
+    function openSequence() {
+      if (state !== 'ready') return;
+      state = 'opening';
+      openStart = clock.getElapsedTime();
+      enterUI.classList.add('hidden');
+      doorLeft.classList.add('open-left');
+      doorRight.classList.add('open-right');
+      seam.style.opacity = '0';
+      setTimeout(() => {
+        hud.classList.add('show');
+      }, 1700);
+    }
+
+    enterBtn.addEventListener('click', openSequence);
+
+    syncDock();
+    drawScreen(0);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      if (state === 'opening') {
+        const p = Math.min((t - openStart) / 1.95, 1);
+        const e = easeOut(p);
+        ambient.intensity = lerp(0.6, 1.5, e);
+        ceilingGlow.intensity = lerp(0.12, 1.45, e);
+        frontFill.intensity = lerp(0.12, 0.9, e);
+        backScreenLight.intensity = lerp(0.22, 0.95, e);
+        camera.position.z = lerp(2.35, 1.7, e * 0.55);
+        camera.lookAt(0, 0, -12);
+
+        if (p >= 1) {
+          state = 'flying';
+          flyStart = t;
+        }
+      } else if (state === 'flying') {
+        const p = Math.min((t - flyStart) / 2.4, 1);
+        const e = easeInOut(p);
+        camera.position.z = lerp(1.7, -3.75, e);
+        camera.position.y = lerp(0.0, 0.14, e);
+        camera.fov = lerp(46, 40, e);
+        camera.updateProjectionMatrix();
+        camera.lookAt(0, 0, -13.5);
+        ambient.intensity = lerp(1.5, 2.2, e);
+        ceilingGlow.intensity = lerp(1.45, 2.0, e);
+        frontFill.intensity = lerp(0.9, 1.15, e);
+        backScreenLight.intensity = lerp(0.95, 1.5, e);
+        if (p >= 1) {
+          state = 'interior';
+          openedAt = t;
+        }
+      } else if (state === 'interior') {
+        autoTimer += dt;
+        if (autoTimer >= AUTO_DURATION && transition >= 1) {
+          goToProject((currentProject + 1) % PROJECTS.length);
+        }
+        if (transition < 1) {
+          transition = Math.min(1, transition + dt / TRANSITION_DURATION);
+          if (transition >= 1) {
+            currentProject = toProject;
+            syncDock();
+          }
+        }
+
+        const driftX = Math.sin((t - openedAt) * 0.18) * 0.05;
+        const driftY = 0.14 + Math.sin((t - openedAt) * 0.12) * 0.025;
+        camera.position.x += (driftX - camera.position.x) * 0.012;
+        camera.position.y += (driftY - camera.position.y) * 0.012;
+        camera.lookAt(0, 0, -13.5);
+      }
+
+      // subtle living capsule pulse
+      const pulse = 1 + Math.sin(t * 0.7) * 0.004;
+      capsule.scale.setScalar(pulse);
+      glow.material.opacity = 0.24 + Math.sin(t * 0.8) * 0.05;
+      drawScreen(t);
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    animate();
+  </script>
 </body>
+
 </html>
