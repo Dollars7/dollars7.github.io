@@ -490,26 +490,22 @@
       }
 
       .dock-card:hover {
-        background: linear-gradient(
-          135deg,
-          rgba(255, 255, 255, 0.9),
-          rgba(255, 255, 255, 0.6)
-        );
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.9),
-          0 12px 24px rgba(0, 0, 0, 0.15);
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
       }
 
       .dock-card.active {
         opacity: 0.28;
         transform: translateY(-6px) scale(1.08);
-        background: rgba(255, 255, 255, 0.18);
-        border-color: rgba(0, 0, 0, 0.08);
+        background: transparent;
+        border-color: transparent;
         box-shadow: none;
       }
       .dock-card.active:hover {
         opacity: 0.28;
-        background: rgba(255, 255, 255, 0.18);
+        background: transparent;
+        border-color: transparent;
         box-shadow: none;
       }
 
@@ -1234,7 +1230,7 @@
       const CAM_TO_SCREEN_DIST = Math.abs(-13.82 - -3.75);
       const SCREEN_FIT_MARGIN = 1.1;
 
-      function fitCameraToScreen() {
+      function computeFitFOV() {
         const aspect = window.innerWidth / window.innerHeight;
         const planeAspect = SCREEN_PLANE_W / SCREEN_PLANE_H;
         let fovRad;
@@ -1244,7 +1240,14 @@
           const halfHeightNeeded = (SCREEN_PLANE_W * SCREEN_FIT_MARGIN) / 2 / aspect;
           fovRad = 2 * Math.atan(halfHeightNeeded / CAM_TO_SCREEN_DIST);
         }
-        camera.fov = Math.min(85, Math.max(18, (fovRad * 180) / Math.PI));
+        return Math.min(85, Math.max(18, (fovRad * 180) / Math.PI));
+      }
+
+      // Instant snap — only for live window resizes while already interior.
+      // The opening/flying sequence eases toward computeFitFOV() instead of
+      // calling this, so arriving at the right FOV never feels like a jump cut.
+      function fitCameraToScreen() {
+        camera.fov = computeFitFOV();
         camera.updateProjectionMatrix();
       }
 
@@ -1926,7 +1929,9 @@
           const e = easeInOut(p);
           camera.position.z = lerp(1.7, -3.75, e);
           camera.position.y = lerp(0.0, 0.14, e);
-          camera.fov = lerp(46, 40, e);
+          // Ease toward the real fit FOV (not a hardcoded 40) so the flight
+          // lands exactly on the right framing — no snap once it arrives.
+          camera.fov = lerp(46, computeFitFOV(), e);
           camera.updateProjectionMatrix();
           camera.lookAt(0, 0, -13.5);
           ambient.intensity = lerp(1.5, 2.2, e);
@@ -1936,7 +1941,6 @@
           if (p >= 1) {
             state = "interior";
             openedAt = t;
-            fitCameraToScreen();
           }
         } else if (state === "interior") {
           if (PROJECTS[currentProject].anim === "video") {
