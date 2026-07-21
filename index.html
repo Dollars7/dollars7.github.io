@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Allan Pei — Space Capsule Portfolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         --bg: #f8f7f4;
@@ -507,6 +513,11 @@
         box-shadow: none;
       }
 
+      .dock-card svg {
+        width: 22px;
+        height: 22px;
+      }
+
       .dock-index {
         display: none;
       }
@@ -551,7 +562,19 @@
         }
 
         #project-dock {
-          display: none;
+          width: min(92vw, 360px);
+          gap: 8px;
+          padding: 8px 10px;
+        }
+
+        .dock-card {
+          width: 38px;
+          height: 38px;
+        }
+
+        .dock-card svg {
+          width: 17px;
+          height: 17px;
         }
 
         #topbar {
@@ -755,11 +778,44 @@
       const gameVideoOverlay = document.getElementById("game-video-overlay");
       const gameVideoFrame = document.getElementById("game-video-frame");
 
+      // Monochrome line icons (stroke = currentColor) so the dock isn't colored
+      // emoji — swap any of these for a real icon-font SVG later if you want
+      // an exact match to a specific icon set.
+      const ICON_SVGS = {
+        music:
+          '<circle cx="8" cy="17" r="3"/><circle cx="18" cy="15" r="3"/><path d="M11 17V5l10-2v12"/>',
+        shader:
+          '<line x1="5" y1="7" x2="5" y2="17"/><circle cx="5" cy="10" r="2"/><line x1="12" y1="5" x2="12" y2="19"/><circle cx="12" cy="15" r="2"/><line x1="19" y1="6" x2="19" y2="18"/><circle cx="19" cy="9" r="2"/>',
+        receipt:
+          '<path d="M6 3h12v17l-2.5-1.5L13 20l-2.5-1.5L8 20l-2-1.5V3z"/><line x1="8.5" y1="8" x2="15.5" y2="8"/><line x1="8.5" y1="12" x2="15.5" y2="12"/>',
+        globe:
+          '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/>',
+        activity: '<polyline points="3,13 8,13 10,7 14,19 16,13 21,13"/>',
+        gamepad:
+          '<rect x="3" y="8" width="18" height="10" rx="5"/><line x1="7" y1="11" x2="7" y2="15"/><line x1="5" y1="13" x2="9" y2="13"/><circle cx="16" cy="12.5" r="1.1"/><circle cx="18.2" cy="14.7" r="1.1"/>',
+        sparkles:
+          '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+      };
+      const EMOJI_TO_ICON_KEY = {
+        "🎵": "music",
+        "⚙️": "shader",
+        "📄": "receipt",
+        "🌐": "globe",
+        "📱": "activity",
+        "🎮": "gamepad",
+        "✨": "sparkles",
+      };
+
+      function iconSvg(iconKey) {
+        const key = ICON_SVGS[iconKey] ? iconKey : EMOJI_TO_ICON_KEY[iconKey] || "sparkles";
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON_SVGS[key]}</svg>`;
+      }
+
       PROJECTS.forEach((p, i) => {
         const card = document.createElement("button");
         card.className = "dock-card";
         card.title = p.title;
-        card.innerHTML = `<span>${p.icon}</span>`;
+        card.innerHTML = iconSvg(p.icon);
         card.addEventListener("click", () => goToProject(i));
         card.addEventListener("mouseenter", () => goToProject(i));
         dock.appendChild(card);
@@ -1168,6 +1224,30 @@
         t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
       const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
+      // ===== Fit the "screen" plane to the viewport (like a slide scaling to
+      // fill its window) instead of using a fixed FOV that's only tuned for
+      // one aspect ratio. Screen plane world size comes from the UV mapping
+      // below (5.78 x 3.92); distance comes from the interior resting camera
+      // z (-3.75) vs the screen mesh z (-13.82).
+      const SCREEN_PLANE_W = 5.78;
+      const SCREEN_PLANE_H = 3.92;
+      const CAM_TO_SCREEN_DIST = Math.abs(-13.82 - -3.75);
+      const SCREEN_FIT_MARGIN = 1.1;
+
+      function fitCameraToScreen() {
+        const aspect = window.innerWidth / window.innerHeight;
+        const planeAspect = SCREEN_PLANE_W / SCREEN_PLANE_H;
+        let fovRad;
+        if (aspect >= planeAspect) {
+          fovRad = 2 * Math.atan((SCREEN_PLANE_H * SCREEN_FIT_MARGIN) / 2 / CAM_TO_SCREEN_DIST);
+        } else {
+          const halfHeightNeeded = (SCREEN_PLANE_W * SCREEN_FIT_MARGIN) / 2 / aspect;
+          fovRad = 2 * Math.atan(halfHeightNeeded / CAM_TO_SCREEN_DIST);
+        }
+        camera.fov = Math.min(85, Math.max(18, (fovRad * 180) / Math.PI));
+        camera.updateProjectionMatrix();
+      }
+
       function drawRoundRect(ctx, x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
@@ -1241,25 +1321,31 @@
           y + 92,
         );
 
-        sctx.font = "700 30px Inter, sans-serif";
+        const TITLE_SIZE = 30;
+        const TITLE_LINE_HEIGHT = 34;
+        sctx.font = `700 ${TITLE_SIZE}px Inter, sans-serif`;
         sctx.fillStyle = "rgba(0,0,0,0.82)";
-        sctx.fillText(project.title, x + 24, y + 138);
+        const titleLines = wrapLines(sctx, project.title, w - 48, 2);
+        titleLines.forEach((line, i) => {
+          sctx.fillText(line, x + 24, y + 138 + i * TITLE_LINE_HEIGHT);
+        });
+        const titleExtra = (titleLines.length - 1) * TITLE_LINE_HEIGHT;
 
         sctx.font = "400 12px Courier New";
         sctx.fillStyle = "rgba(0,0,0,0.42)";
-        sctx.fillText(project.sub.toUpperCase(), x + 24, y + 165);
+        sctx.fillText(project.sub.toUpperCase(), x + 24, y + 165 + titleExtra);
 
         const grad = sctx.createLinearGradient(x + 24, 0, x + w - 24, 0);
         grad.addColorStop(0, "rgba(0,0,0,0.18)");
         grad.addColorStop(1, "rgba(0,0,0,0.02)");
         sctx.fillStyle = grad;
-        sctx.fillRect(x + 24, y + 184, w - 48, 1);
+        sctx.fillRect(x + 24, y + 184 + titleExtra, w - 48, 1);
 
         sctx.font = "400 16px/1.6 Inter, sans-serif";
         sctx.fillStyle = "rgba(0,0,0,0.54)";
-        wrapText(sctx, project.desc, x + 24, y + 228, w - 48, 27);
+        wrapText(sctx, project.desc, x + 24, y + 228 + titleExtra, w - 48, 27);
 
-        const yy = y + 360;
+        const yy = y + 360 + titleExtra;
         const hasLink = !!project.link;
         sctx.fillStyle = hasLink ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.03)";
         drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
@@ -1283,6 +1369,36 @@
           y + h - 26,
         );
         sctx.restore();
+      }
+
+      // Wraps text at word boundaries into at most `maxLines` lines (ctx.font must
+      // already be set). If it still doesn't fit, the last line is ellipsized —
+      // keeps every title the same font size instead of shrinking long ones.
+      function wrapLines(ctx, text, maxWidth, maxLines) {
+        const words = text.split(" ");
+        const lines = [];
+        let line = "";
+        for (let i = 0; i < words.length; i++) {
+          const test = line + words[i] + " ";
+          if (ctx.measureText(test).width > maxWidth && line) {
+            if (lines.length === maxLines - 1) {
+              let rest = (line + words.slice(i).join(" ")).trim();
+              let truncated = false;
+              while (rest.length > 1 && ctx.measureText(rest + "…").width > maxWidth) {
+                rest = rest.slice(0, -1);
+                truncated = true;
+              }
+              lines.push(truncated ? rest.trim() + "…" : rest);
+              return lines;
+            }
+            lines.push(line.trim());
+            line = words[i] + " ";
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line.trim());
+        return lines;
       }
 
       function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -1723,10 +1839,36 @@
         if (e.key === "Enter" && state === "ready") openSequence();
       });
 
+      // ===== Swipe to switch projects (mobile — no hover, dock is cramped) =====
+      let swipeStartX = null;
+      let swipeStartY = null;
+      window.addEventListener(
+        "touchstart",
+        (e) => {
+          if (state !== "interior") return;
+          swipeStartX = e.touches[0].clientX;
+          swipeStartY = e.touches[0].clientY;
+        },
+        { passive: true },
+      );
+      window.addEventListener(
+        "touchend",
+        (e) => {
+          if (state !== "interior" || swipeStartX === null) return;
+          const dx = e.changedTouches[0].clientX - swipeStartX;
+          const dy = e.changedTouches[0].clientY - swipeStartY;
+          swipeStartX = null;
+          swipeStartY = null;
+          if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+          advance(dx < 0 ? 1 : -1);
+        },
+        { passive: true },
+      );
+
       window.addEventListener("resize", () => {
-        camera.aspect = W() / H();
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(W(), H());
+        renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
       // ===== Animation state =====
@@ -1753,6 +1895,11 @@
 
       syncDock();
       drawScreen(0);
+      // Inter loads async — re-draw once it's actually ready so canvas text
+      // (and the title auto-fit width measurement) use the real font, not a fallback.
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => drawScreen(0));
+      }
 
       function animate() {
         requestAnimationFrame(animate);
@@ -1789,6 +1936,7 @@
           if (p >= 1) {
             state = "interior";
             openedAt = t;
+            fitCameraToScreen();
           }
         } else if (state === "interior") {
           if (PROJECTS[currentProject].anim === "video") {
@@ -1824,6 +1972,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
+        if (state === "interior") fitCameraToScreen();
       });
 
       animate();
