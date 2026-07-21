@@ -584,11 +584,45 @@
           letter-spacing: 0.12em;
         }
       }
+
+
+      /* ===== UPSIDEDOWN VIDEO (LEFT PROJECT PANEL ONLY) ===== */
+      #game-video-overlay {
+        position: fixed;
+        z-index: 12;
+        display: none;
+        overflow: hidden;
+        border-radius: 22px;
+        background: #000;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+        pointer-events: auto;
+      }
+
+      #game-video-overlay.visible {
+        display: block;
+      }
+
+      #game-video-frame {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
     </style>
   </head>
 
   <body>
     <canvas id="scene"></canvas>
+
+    <div id="game-video-overlay" aria-hidden="true">
+      <iframe
+        id="game-video-frame"
+        src=""
+        title="UpsideDown gameplay demo"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    </div>
 
     <div id="entry" aria-hidden="false">
       <div class="frame-glow"></div>
@@ -693,12 +727,13 @@
           link: "https://github.com/Dollars7/Daily-Activity-Monitoring-System",
         },
         {
-          title: "AI Shader Studio",
-          sub: "Concept — Natural Language → GLSL",
-          desc: "Idea for an AI-assisted shader authoring tool: prompt in natural language, get back working GLSL. Concept only — not built yet, no code or demo.",
-          anim: "shaderWave",
-          icon: "✨",
-          // no link on purpose — this is a future idea, not a shipped project
+          title: "UpsideDown",
+          sub: "GameMaker · 2D Platformer",
+          desc: "A level-based platform game built with GameMaker. Each level contains two parallel maps, allowing the player to travel between a light world and a dark world to solve traversal challenges.",
+          anim: "video",
+          icon: "🎮",
+          youtubeId: "Z3AwuDivoNo",
+          video: "https://www.youtube.com/watch?v=Z3AwuDivoNo&list=PL13iC0v234XFBD3PzkRHGQKcFS7tu0ymp",
         },
         // Add a `video: 'https://youtu.be/...'` field to any project above to show a "▶ Watch Demo" button for it.
       ];
@@ -717,6 +752,8 @@
       const dock = document.getElementById("project-dock");
       const projectLinkBtn = document.getElementById("project-link-btn");
       const videoLinkBtn = document.getElementById("video-link-btn");
+      const gameVideoOverlay = document.getElementById("game-video-overlay");
+      const gameVideoFrame = document.getElementById("game-video-frame");
 
       PROJECTS.forEach((p, i) => {
         const card = document.createElement("button");
@@ -1034,6 +1071,63 @@
       screenMesh.position.z = -13.82;
       capsule.add(screenMesh);
 
+      const VIDEO_PANEL = { x: 70, y: 106, w: 820, h: 756 };
+      let loadedVideoId = null;
+
+      function canvasPointToScreen(px, py) {
+        const local = new THREE.Vector3(
+          (px / SCREEN_W) * 5.78 - 2.89,
+          1.96 - (py / SCREEN_H) * 3.92,
+          0,
+        );
+        screenMesh.localToWorld(local);
+        local.project(camera);
+        return {
+          x: (local.x * 0.5 + 0.5) * window.innerWidth,
+          y: (-local.y * 0.5 + 0.5) * window.innerHeight,
+        };
+      }
+
+      function positionGameVideo() {
+        const topLeft = canvasPointToScreen(VIDEO_PANEL.x, VIDEO_PANEL.y);
+        const bottomRight = canvasPointToScreen(
+          VIDEO_PANEL.x + VIDEO_PANEL.w,
+          VIDEO_PANEL.y + VIDEO_PANEL.h,
+        );
+
+        gameVideoOverlay.style.left = `${topLeft.x}px`;
+        gameVideoOverlay.style.top = `${topLeft.y}px`;
+        gameVideoOverlay.style.width = `${Math.max(0, bottomRight.x - topLeft.x)}px`;
+        gameVideoOverlay.style.height = `${Math.max(0, bottomRight.y - topLeft.y)}px`;
+      }
+
+      function syncGameVideo() {
+        const project = PROJECTS[currentProject];
+        const shouldShow =
+          state === "interior" && project.anim === "video" && !!project.youtubeId;
+
+        if (shouldShow) {
+          positionGameVideo();
+          gameVideoOverlay.classList.add("visible");
+          gameVideoOverlay.setAttribute("aria-hidden", "false");
+
+          if (loadedVideoId !== project.youtubeId) {
+            gameVideoFrame.src =
+              `https://www.youtube.com/embed/${project.youtubeId}?rel=0&modestbranding=1&playsinline=1`;
+            loadedVideoId = project.youtubeId;
+          }
+        } else {
+          gameVideoOverlay.classList.remove("visible");
+          gameVideoOverlay.setAttribute("aria-hidden", "true");
+
+          // Clearing src fully stops playback when leaving the game project.
+          if (loadedVideoId !== null) {
+            gameVideoFrame.src = "";
+            loadedVideoId = null;
+          }
+        }
+      }
+
       const bezelShape = roundedRectShape(5.92, 4.05, 0.53);
       bezelShape.holes.push(roundedRectShape(5.78, 3.92, 0.48));
       const bezel = new THREE.Mesh(
@@ -1246,6 +1340,10 @@
             break;
           case "ceramic":
             drawCeramic(x + 14, y + 14, w - 28, h - 28, time, alpha);
+            break;
+          case "video":
+            sctx.fillStyle = "#000";
+            sctx.fillRect(x + 14, y + 14, w - 28, h - 28);
             break;
         }
         sctx.restore();
@@ -1603,6 +1701,7 @@
         // 立即更新图标、计数器和项目链接
         syncDock();
         updateDockMagnify(null);
+        syncGameVideo();
 
         // 开始快速画面过渡
         transition = 0;
@@ -1692,9 +1791,13 @@
             openedAt = t;
           }
         } else if (state === "interior") {
-          autoTimer += dt;
-          if (autoTimer >= AUTO_DURATION && transition >= 1) {
-            goToProject((currentProject + 1) % PROJECTS.length);
+          if (PROJECTS[currentProject].anim === "video") {
+            autoTimer = 0;
+          } else {
+            autoTimer += dt;
+            if (autoTimer >= AUTO_DURATION && transition >= 1) {
+              goToProject((currentProject + 1) % PROJECTS.length);
+            }
           }
           if (transition < 1) {
             transition = Math.min(1, transition + dt / TRANSITION_DURATION);
@@ -1712,6 +1815,7 @@
         capsule.scale.setScalar(pulse);
         glow.material.opacity = 0.24 + Math.sin(t * 0.8) * 0.05;
         drawScreen(t);
+        syncGameVideo();
 
         renderer.render(scene, camera);
       }
