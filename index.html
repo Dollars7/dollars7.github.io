@@ -694,6 +694,15 @@
           style="display: none"
           >▶ Watch Demo</a
         >
+        <a
+          class="nav-btn"
+          id="github-link-btn"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          style="display: none"
+          >GitHub ↗</a
+        >
       </div>
 
       <div id="hint">Hover the dock to preview · arrow keys / buttons</div>
@@ -717,7 +726,8 @@
           desc: "Interactive real-time shader playground with custom vertex/fragment pipelines, parametric surface generation, and live material & lighting controls.",
           anim: "editor",
           icon: "⚙️",
-          link: "https://github.com/Dollars7/WebGL-Shader-Playground",
+          link: "https://dollars7.github.io/WebGL-Shader-Playground/shader-playground/index.html",
+          github: "https://github.com/Dollars7/WebGL-Shader-Playground",
         },
         {
           title: "Thermal Receipt Resume",
@@ -753,6 +763,7 @@
           video: "https://www.youtube.com/watch?v=Z3AwuDivoNo&list=PL13iC0v234XFBD3PzkRHGQKcFS7tu0ymp",
         },
         // Add a `video: 'https://youtu.be/...'` field to any project above to show a "▶ Watch Demo" button for it.
+        // Add a `github: 'https://github.com/...'` field to any project above to show a "GitHub ↗" button for it.
       ];
 
       // ===== DOM =====
@@ -769,6 +780,7 @@
       const dock = document.getElementById("project-dock");
       const projectLinkBtn = document.getElementById("project-link-btn");
       const videoLinkBtn = document.getElementById("video-link-btn");
+      const githubLinkBtn = document.getElementById("github-link-btn");
       const gameVideoOverlay = document.getElementById("game-video-overlay");
       const gameVideoFrame = document.getElementById("game-video-frame");
 
@@ -885,6 +897,14 @@
         } else {
           videoLinkBtn.href = "#";
           videoLinkBtn.style.display = "none";
+        }
+
+        if (project.github) {
+          githubLinkBtn.href = project.github;
+          githubLinkBtn.style.display = "";
+        } else {
+          githubLinkBtn.href = "#";
+          githubLinkBtn.style.display = "none";
         }
       }
 
