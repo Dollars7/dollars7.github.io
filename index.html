@@ -411,53 +411,28 @@
         text-align: right;
       }
 
-      #bottom-nav {
-        position: absolute;
-        left: 50%;
-        bottom: 24px;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 14px;
+      /* Real click targets for the canvas-drawn CTA pills in the sidebar.
+         Positioned every frame via canvasPointToScreen() to sit exactly over
+         their drawn counterpart — no visible chrome of their own. */
+      .cta-hit {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 0;
+        display: block;
+        pointer-events: none;
+        z-index: 26;
+      }
+
+      .cta-hit.visible {
         pointer-events: auto;
-        z-index: 25;
-      }
-
-      .nav-btn {
-        appearance: none;
-        border: 1px solid var(--ui-border);
-        background: var(--ui);
-        color: rgba(0, 0, 0, 0.78);
-        padding: 10px 16px;
-        border-radius: 999px;
-        font:
-          400 13px/1 "Courier New",
-          monospace;
-        letter-spacing: 0.28em;
-        text-transform: uppercase;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        transition: all 0.2s ease;
-      }
-
-      .nav-btn:hover,
-      .nav-btn:focus-visible {
-        outline: none;
-        color: rgba(0, 0, 0, 0.92);
-        border-color: rgba(0, 0, 0, 0.24);
-        background: rgba(255, 255, 255, 0.9);
-      }
-
-      a.nav-btn {
-        display: inline-block;
-        text-decoration: none;
       }
 
       #project-dock {
         position: absolute;
         left: 50%;
-        bottom: 80px;
+        bottom: 26px;
         transform: translateX(-50%);
         display: flex;
         gap: 18px;
@@ -563,7 +538,7 @@
           width: min(92vw, 360px);
           gap: 8px;
           padding: 8px 10px;
-          bottom: 92px;
+          bottom: 20px;
         }
 
         .dock-card {
@@ -580,17 +555,6 @@
           left: 16px;
           right: 16px;
           top: 14px;
-        }
-
-        #bottom-nav {
-          gap: 8px;
-          bottom: 16px;
-        }
-
-        .nav-btn {
-          padding: 9px 12px;
-          font-size: 12px;
-          letter-spacing: 0.16em;
         }
       }
 
@@ -664,34 +628,33 @@
 
       <div id="project-dock"></div>
 
-      <div id="bottom-nav">
-        <a
-          class="nav-btn"
-          id="project-link-btn"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-          >View Project ↗</a
-        >
-        <a
-          class="nav-btn"
-          id="video-link-btn"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-          style="display: none"
-          >▶ Watch Demo</a
-        >
-        <a
-          class="nav-btn"
-          id="github-link-btn"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-          style="display: none"
-          >GitHub ↗</a
-        >
-      </div>
+      <!-- Invisible hit-targets, positioned every frame over the matching
+           canvas-drawn pill in the sidebar via canvasPointToScreen() so the
+           in-scene "buttons" are real clickable links, not just a drawing. -->
+      <a
+        class="cta-hit"
+        id="project-link-btn"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="View live project"
+      ></a>
+      <a
+        class="cta-hit"
+        id="video-link-btn"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Watch demo video"
+      ></a>
+      <a
+        class="cta-hit"
+        id="github-link-btn"
+        href="#"
+        target="_blank"
+        aria-label="View source on GitHub"
+        rel="noopener noreferrer"
+      ></a>
     </div>
 
     <script type="module">
@@ -727,7 +690,7 @@
         },
         {
           title: "UpsideDown",
-          sub: "GameMaker · 2D Platformer",
+          sub: "GameMaker Studio 2 / GML",
           desc: "A level-based 2D platformer built in GameMaker. Each level layers two parallel maps — a light world and a dark world — that the player swaps between to solve traversal puzzles.",
           anim: "video",
           icon: "🎮",
@@ -877,32 +840,14 @@
         syncProjectLink();
       }
 
+      // Just points each hit-target at the right URL — visibility and
+      // position are handled every frame by positionCtaOverlays(), since
+      // they depend on where drawSidebar() actually drew the matching pill.
       function syncProjectLink() {
         const project = PROJECTS[currentProject];
-        if (project.link) {
-          projectLinkBtn.href = project.link;
-          projectLinkBtn.textContent = "View Project ↗";
-          projectLinkBtn.style.display = "";
-        } else {
-          projectLinkBtn.href = "#";
-          projectLinkBtn.style.display = "none";
-        }
-
-        if (project.video) {
-          videoLinkBtn.href = project.video;
-          videoLinkBtn.style.display = "";
-        } else {
-          videoLinkBtn.href = "#";
-          videoLinkBtn.style.display = "none";
-        }
-
-        if (project.github) {
-          githubLinkBtn.href = project.github;
-          githubLinkBtn.style.display = "";
-        } else {
-          githubLinkBtn.href = "#";
-          githubLinkBtn.style.display = "none";
-        }
+        projectLinkBtn.href = project.link || "#";
+        videoLinkBtn.href = project.video || "#";
+        githubLinkBtn.href = project.github || "#";
       }
 
       // ===== THREE =====
@@ -1149,6 +1094,11 @@
       const VIDEO_PANEL = { x: 70, y: 106, w: 820, h: 756 };
       let loadedVideoId = null;
 
+      // Texture-space {type, x, y, w, h} rects for the current project's CTA
+      // pills, rebuilt each time drawSidebar() draws the active project —
+      // positionCtaOverlays() projects these into real screen coordinates.
+      let ctaPillBounds = [];
+
       function canvasPointToScreen(px, py) {
         const local = new THREE.Vector3(
           (px / SCREEN_W) * 5.78 - 2.89,
@@ -1174,6 +1124,30 @@
         gameVideoOverlay.style.top = `${topLeft.y}px`;
         gameVideoOverlay.style.width = `${Math.max(0, bottomRight.x - topLeft.x)}px`;
         gameVideoOverlay.style.height = `${Math.max(0, bottomRight.y - topLeft.y)}px`;
+      }
+
+      function positionCtaOverlays() {
+        const els = {
+          link: projectLinkBtn,
+          video: videoLinkBtn,
+          github: githubLinkBtn,
+        };
+        const shown = new Set();
+        ctaPillBounds.forEach((pill) => {
+          const el = els[pill.type];
+          if (!el) return;
+          shown.add(pill.type);
+          const topLeft = canvasPointToScreen(pill.x, pill.y);
+          const bottomRight = canvasPointToScreen(pill.x + pill.w, pill.y + pill.h);
+          el.style.left = `${topLeft.x}px`;
+          el.style.top = `${topLeft.y}px`;
+          el.style.width = `${Math.max(0, bottomRight.x - topLeft.x)}px`;
+          el.style.height = `${Math.max(0, bottomRight.y - topLeft.y)}px`;
+          el.classList.toggle("visible", state === "interior");
+        });
+        Object.entries(els).forEach(([type, el]) => {
+          if (!shown.has(type)) el.classList.remove("visible");
+        });
       }
 
       function syncGameVideo() {
@@ -1323,7 +1297,7 @@
 
         sctx.save();
         sctx.globalAlpha = alpha;
-        sctx.fillStyle = "rgba(255,255,255,0.72)";
+        sctx.fillStyle = "rgba(255,255,255,0.9)";
         drawRoundRect(sctx, x, y, w, h, 26);
         sctx.fill();
         sctx.strokeStyle = "rgba(0,0,0,0.08)";
@@ -1349,9 +1323,9 @@
         });
         const titleExtra = (titleLines.length - 1) * TITLE_LINE_HEIGHT;
 
-        sctx.font = "400 15px Courier New";
-        sctx.fillStyle = "rgba(0,0,0,0.72)";
-        sctx.fillText(project.sub.toUpperCase(), x + 24, y + 172 + titleExtra);
+        sctx.font = "400 17px Courier New";
+        sctx.fillStyle = "rgba(0,0,0,0.85)";
+        sctx.fillText(project.sub.toUpperCase(), x + 24, y + 174 + titleExtra);
 
         const grad = sctx.createLinearGradient(x + 24, 0, x + w - 24, 0);
         grad.addColorStop(0, "rgba(0,0,0,0.18)");
@@ -1370,19 +1344,39 @@
           31,
         );
 
-        const hasLink = !!project.link;
-        if (hasLink) {
-          const yy = Math.max(y + 360 + titleExtra, descEndY + 22);
+        const pills = [];
+        if (project.link) pills.push({ type: "link", label: "→ VIEW PROJECT ↗" });
+        if (project.video) pills.push({ type: "video", label: "▶ WATCH DEMO" });
+        if (project.github) pills.push({ type: "github", label: "GITHUB ↗" });
+
+        const isActive = project === PROJECTS[currentProject];
+        if (isActive) ctaPillBounds = [];
+
+        const PILL_H = 40;
+        const PILL_GAP = 10;
+        let pillY = Math.max(y + 360 + titleExtra, descEndY + 22);
+        pills.forEach((pill) => {
           sctx.fillStyle = "rgba(0,0,0,0.1)";
-          drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+          drawRoundRect(sctx, x + 24, pillY, w - 48, PILL_H, 13);
           sctx.fill();
           sctx.strokeStyle = "rgba(0,0,0,0.22)";
-          drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+          drawRoundRect(sctx, x + 24, pillY, w - 48, PILL_H, 13);
           sctx.stroke();
           sctx.font = "400 14px Courier New";
           sctx.fillStyle = "rgba(0,0,0,0.86)";
-          sctx.fillText("→ VIEW PROJECT (BUTTON BELOW)", x + 40, yy + 29);
-        }
+          sctx.fillText(pill.label, x + 40, pillY + 26);
+
+          if (isActive) {
+            ctaPillBounds.push({
+              type: pill.type,
+              x: x + 24,
+              y: pillY,
+              w: w - 48,
+              h: PILL_H,
+            });
+          }
+          pillY += PILL_H + PILL_GAP;
+        });
 
         sctx.font = "400 13px Courier New";
         sctx.fillStyle = "rgba(0,0,0,0.52)";
@@ -1849,8 +1843,35 @@
         transition = 0;
       }
 
+      // Short synthesized tick — no audio file needed. Lazily creates the
+      // AudioContext on first use so it starts inside a real user gesture
+      // (keyboard/swipe), which is what autoplay policies require anyway.
+      let audioCtx = null;
+      function playTick() {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(720, now);
+          osc.frequency.exponentialRampToValueAtTime(340, now + 0.05);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + 0.006);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } catch (e) {}
+      }
+
       function advance(dir) {
         // if (transition < 1) return;
+        playTick();
         goToProject((currentProject + dir + PROJECTS.length) % PROJECTS.length);
       }
       // ══════════════════════════════════════════
@@ -1980,6 +2001,7 @@
         glow.material.opacity = 0.24 + Math.sin(t * 0.8) * 0.05;
         drawScreen(t);
         syncGameVideo();
+        positionCtaOverlays();
 
         renderer.render(scene, camera);
       }
