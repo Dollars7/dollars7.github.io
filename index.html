@@ -701,7 +701,7 @@
         {
           title: "NoteFlow",
           sub: "Next.js / TypeScript / Cloudflare D1",
-          desc: "Retention-first learning notebook: a Flow Engine schedules retrieval-practice prompts from a Cloudflare D1-backed note library, ranking by memory retention and goal relevance instead of due-dates or streaks.",
+          desc: "Full-stack spaced-repetition app: Next.js + TypeScript frontend, API routes backed by Cloudflare D1, and a custom retrieval-ranking algorithm that weighs memory decay, goal relevance, and mastery gaps instead of due-dates or streaks.",
           anim: "ceramic",
           icon: "📝",
           // TODO: add `link: '<live demo URL>'` once you share it — repo is server-backed (Next.js + D1), so it can't just be dropped on GitHub Pages like the others.
@@ -709,8 +709,8 @@
         },
         {
           title: "Music Visualizer Studio",
-          sub: "React + Node.js/FFmpeg + WebGL",
-          desc: "Real-time audio visualization platform: a Node.js/FFmpeg media pipeline decodes and normalizes uploaded audio, while a React/WebGL client performs live FFT analysis and rendering in-browser.",
+          sub: "Vanilla JS / Canvas / Web Audio API",
+          desc: "Real-time audio visualizer: a vanilla-JS Canvas renderer runs live Web Audio API FFT analysis and draws the animation frame-by-frame in-browser, paired with a Node.js/FFmpeg pipeline for server-side video export.",
           anim: "shaderWave",
           icon: "🎵",
           link: "https://dollars7.github.io/music-visualizer-studio/",
@@ -718,8 +718,8 @@
         },
         {
           title: "WebGL Shader Playground",
-          sub: "GLSL / WebGL / Three.js",
-          desc: "Interactive real-time shader playground with custom vertex/fragment pipelines, parametric surface generation, and live material & lighting controls.",
+          sub: "GLSL / WebGL 1.0 / Vanilla JS",
+          desc: "Hand-written WebGL/GLSL renderer, built without Three.js: 9 custom fragment shaders (Phong, Fresnel, toon, procedural materials), real-time Blinn-Phong lighting, cubemap reflections, and parametric mesh generation.",
           anim: "editor",
           icon: "⚙️",
           link: "https://dollars7.github.io/WebGL-Shader-Playground/shader-playground/index.html",
@@ -728,7 +728,7 @@
         {
           title: "UpsideDown",
           sub: "GameMaker · 2D Platformer",
-          desc: "A level-based platform game built with GameMaker. Each level contains two parallel maps, allowing the player to travel between a light world and a dark world to solve traversal challenges.",
+          desc: "A level-based 2D platformer built in GameMaker. Each level layers two parallel maps — a light world and a dark world — that the player swaps between to solve traversal puzzles.",
           anim: "video",
           icon: "🎮",
           youtubeId: "Z3AwuDivoNo",
@@ -737,24 +737,24 @@
         },
         {
           title: "Spherical Conformal Mesh Parameterization",
-          sub: "Python / NumPy / SciPy",
-          desc: "Geometry-processing pipeline mapping genus-0 triangle meshes onto the unit sphere via the Laplace–Beltrami operator and harmonic energy minimization.",
+          sub: "Python / NumPy",
+          desc: "Hand-rolled NumPy pipeline (no SciPy solver) implementing discrete differential geometry: builds the cotangent-weighted Laplacian and maps meshes onto the unit sphere via projected-gradient minimization of harmonic energy — the math behind mesh parameterization and retopology.",
           anim: "network",
           icon: "🌐",
           github: "https://github.com/Dollars7/Spherical-Conformal-Parameterization-of-3D-Meshes",
         },
         {
           title: "Daily Activity Monitoring",
-          sub: "Native iOS · Swift",
-          desc: "iOS application for tracking daily activity patterns and visualizing behavioral data using native Swift components.",
+          sub: "SwiftUI / Core Data / MapKit",
+          desc: "SwiftUI + Core Data iOS app with an MVVM architecture: logs activity and sleep locally, then cross-references it against live weather pulled from a REST API via MapKit/CoreLocation.",
           anim: "bagua",
           icon: "📱",
           github: "https://github.com/Dollars7/Daily-Activity-Monitoring-System",
         },
         {
           title: "Thermal Receipt Resume",
-          sub: "Physics Receipt",
-          desc: "Animated white receipt surface bending in space with live text bands and thermal artifacts.",
+          sub: "Three.js / Custom Cloth Physics",
+          desc: "A from-scratch mass-spring cloth simulation: a 1,400-particle mesh with structural/shear/bend constraints bends a procedurally-textured receipt in real time, with live text bands standing in as a resume.",
           anim: "receipt",
           icon: "📄",
           link: "main.html",
@@ -1332,7 +1332,7 @@
         sctx.stroke();
 
         sctx.font = "400 88px Georgia";
-        sctx.fillStyle = "rgba(0,0,0,0.08)";
+        sctx.fillStyle = "rgba(0,0,0,0.22)";
         sctx.fillText(
           String(PROJECTS.indexOf(project) + 1).padStart(2, "0"),
           x + 24,
@@ -1350,7 +1350,7 @@
         const titleExtra = (titleLines.length - 1) * TITLE_LINE_HEIGHT;
 
         sctx.font = "400 15px Courier New";
-        sctx.fillStyle = "rgba(0,0,0,0.6)";
+        sctx.fillStyle = "rgba(0,0,0,0.72)";
         sctx.fillText(project.sub.toUpperCase(), x + 24, y + 172 + titleExtra);
 
         const grad = sctx.createLinearGradient(x + 24, 0, x + w - 24, 0);
@@ -1360,7 +1360,7 @@
         sctx.fillRect(x + 24, y + 191 + titleExtra, w - 48, 1);
 
         sctx.font = "400 19px/1.6 Inter, sans-serif";
-        sctx.fillStyle = "rgba(0,0,0,0.72)";
+        sctx.fillStyle = "rgba(0,0,0,0.82)";
         const descEndY = wrapText(
           sctx,
           project.desc,
@@ -1373,19 +1373,19 @@
         const hasLink = !!project.link;
         if (hasLink) {
           const yy = Math.max(y + 360 + titleExtra, descEndY + 22);
-          sctx.fillStyle = "rgba(0,0,0,0.06)";
+          sctx.fillStyle = "rgba(0,0,0,0.1)";
           drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
           sctx.fill();
-          sctx.strokeStyle = "rgba(0,0,0,0.08)";
+          sctx.strokeStyle = "rgba(0,0,0,0.22)";
           drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
           sctx.stroke();
           sctx.font = "400 14px Courier New";
-          sctx.fillStyle = "rgba(0,0,0,0.78)";
+          sctx.fillStyle = "rgba(0,0,0,0.86)";
           sctx.fillText("→ VIEW PROJECT (BUTTON BELOW)", x + 40, yy + 29);
         }
 
         sctx.font = "400 13px Courier New";
-        sctx.fillStyle = "rgba(0,0,0,0.4)";
+        sctx.fillStyle = "rgba(0,0,0,0.52)";
         sctx.fillText(
           "HOVER OR CLICK DOCK · SWIPE ON MOBILE",
           x + 24,
@@ -1794,8 +1794,8 @@
         const cy = y + h * 0.54;
         sctx.save();
         sctx.translate(cx, cy);
-        sctx.strokeStyle = "rgba(0,0,0,0.16)";
-        sctx.lineWidth = 1.25;
+        sctx.strokeStyle = "rgba(0,0,0,0.42)";
+        sctx.lineWidth = 1.9;
         for (let i = 0; i < 18; i++) {
           sctx.beginPath();
           const rx = 110 + i * 10 + Math.sin(t * 0.5 + i * 0.45) * 4;
