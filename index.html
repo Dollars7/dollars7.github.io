@@ -453,11 +453,6 @@
         text-decoration: none;
       }
 
-      a.nav-btn.disabled {
-        pointer-events: none;
-        opacity: 0.4;
-      }
-
       #project-dock {
         position: absolute;
         left: 50%;
@@ -885,12 +880,11 @@
         const project = PROJECTS[currentProject];
         if (project.link) {
           projectLinkBtn.href = project.link;
-          projectLinkBtn.classList.remove("disabled");
           projectLinkBtn.textContent = "View Project ↗";
+          projectLinkBtn.style.display = "";
         } else {
           projectLinkBtn.href = "#";
-          projectLinkBtn.classList.add("disabled");
-          projectLinkBtn.textContent = "No Link Yet";
+          projectLinkBtn.style.display = "none";
         }
 
         if (project.video) {
@@ -1375,21 +1369,19 @@
           31,
         );
 
-        const yy = Math.max(y + 360 + titleExtra, descEndY + 22);
         const hasLink = !!project.link;
-        sctx.fillStyle = hasLink ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.03)";
-        drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
-        sctx.fill();
-        sctx.strokeStyle = "rgba(0,0,0,0.08)";
-        drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
-        sctx.stroke();
-        sctx.font = "400 14px Courier New";
-        sctx.fillStyle = hasLink ? "rgba(0,0,0,0.78)" : "rgba(0,0,0,0.4)";
-        sctx.fillText(
-          hasLink ? "→ VIEW PROJECT (BUTTON BELOW)" : "Loading",
-          x + 40,
-          yy + 29,
-        );
+        if (hasLink) {
+          const yy = Math.max(y + 360 + titleExtra, descEndY + 22);
+          sctx.fillStyle = "rgba(0,0,0,0.06)";
+          drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+          sctx.fill();
+          sctx.strokeStyle = "rgba(0,0,0,0.08)";
+          drawRoundRect(sctx, x + 24, yy, w - 48, 46, 14);
+          sctx.stroke();
+          sctx.font = "400 14px Courier New";
+          sctx.fillStyle = "rgba(0,0,0,0.78)";
+          sctx.fillText("→ VIEW PROJECT (BUTTON BELOW)", x + 40, yy + 29);
+        }
 
         sctx.font = "400 13px Courier New";
         sctx.fillStyle = "rgba(0,0,0,0.4)";
